@@ -7,6 +7,9 @@
 #include <cassert>
 #include <stdexcept>
 #include <random>
+
+#include <list>
+
 // Tensor模板类定义
 template<typename T>
 class Tensor {
@@ -29,6 +32,9 @@ public:
 
     // 访问元素（const版本）tensor({1,2,3...})
     const T& operator()(const std::vector<size_t>& indexes) const;
+    
+    // 输出张量结构及元素
+    void print() const ;
 
     // 随机初始化tensor-1.2
     static Tensor<T> rand(const std::vector<size_t>& shape);
@@ -41,13 +47,19 @@ public:
 
     // 创建所有元素为指定值的Tensor-1.3
     static Tensor<T> full(const std::vector<size_t>& shape, T value);
+    
+    // 创建二维单位矩阵-1.3
+    static Tensor<T> eye(size_t size);
 private:
     std::vector<T> data_; // 存储Tensor元素
+
     std::vector<size_t> shape_; // 存储Tensor形状
+
     std::vector<size_t> strides_; // 存储各维度的步长
 
     // 计算多维索引对应的一维索引
     size_t calculate_index(const std::vector<size_t>& indexes) const;
+
 };
 
 // 构造函数实现
@@ -58,8 +70,8 @@ Tensor<T>::Tensor(const std::vector<T>& data, const std::vector<size_t>& shape)
         throw std::invalid_argument("Shape cannot be empty.(when create tensor)");
     }
     for (size_t i = 0; i < shape_.size(); i++) {
-        if (shape_[i] <= 0) { 
-            throw std::invalid_argument("Shape dimensions must be greater than zero.(when create tensor)");
+        if (shape[i]==0||shape[i]>1000) { 
+            throw std::invalid_argument("Shape dimensions must be greater than zero and should not be too large.(when create tensor)");
         }
     }
     strides_.resize(shape_.size()); 
@@ -108,7 +120,90 @@ size_t Tensor<T>::calculate_index(const std::vector<size_t>& indexes) const {
     }
     return index;
 }
-//rand<>,随机舒适化tensor
+
+//输出张量结构与元素的实现
+template<typename T>
+void Tensor<T>::print() const {
+        // std::list<std::string> out;
+        // for (auto i : data_)
+        // {
+        //     out.push_back(std::to_string(i));
+        // }
+        // int times=0;
+        // int numbers=0;
+        // for (size_t i = strides_.size()-1; i-->0 ;)
+        // {
+        //     auto stride=strides_[i];
+        //     std::list<std::string>::iterator temp;
+        //     for (auto it = out.begin(); it != out.end(); ++it)
+        //     {
+        //         if (*it!="["&&*it!="]")
+        //         {
+        //             numbers++;
+        //             if (numbers==1)
+        //             {
+        //                 out.insert(it,"[");
+                        
+        //             }else if(numbers==stride)
+        //             {
+        //                 numbers=0;
+        //                 if (++it==out.end())
+        //                 {
+        //                     out.push_back("]");
+        //                     break;
+        //                 }else
+        //                 {
+        //                     out.insert(it,"]");
+        //                     it--;
+        //                 }
+                        
+        //             }else
+        //             {
+                        
+        //             }
+                    
+        //         }
+                
+        //     }
+        //     times++;
+
+        // out.push_front("[");
+        // out.push_back("]");
+        // }
+        // int numbers_=0;
+        // for (auto i : out)
+        // {
+        //     if (i=="]")
+        //     {
+        //         numbers_=1;
+        //     }else if(i=="["&&numbers_==1)
+        //     {
+        //         std::cout<<"\n";
+        //         numbers_=0;
+        //     }
+        //     std::cout<<i<<" "; 
+              
+        // }
+        // std::cout<<std::endl;
+        // return;
+        int numbers=0;
+        auto stride=strides_[strides_.size()-2];
+        for (size_t i = 0; i < data_.size(); i++)
+        {
+            numbers++;
+            std::cout<<data_[i]<<" ";
+            if (numbers==stride)
+            {
+                numbers=0;
+                std::cout<<std::endl;
+            }
+        }
+        return;
+        
+    }
+
+
+//rand<>,随机初始化tensor
 //double类型实现
 template<>
 Tensor<double> Tensor<double>::rand(const std::vector<size_t>& shape) {
@@ -116,8 +211,8 @@ Tensor<double> Tensor<double>::rand(const std::vector<size_t>& shape) {
         throw std::invalid_argument("Shape cannot be empty.(when using rand to create tensor)");
     }
     for (size_t i = 0; i < shape.size(); i++){
-        if (shape[i]<=0){
-            throw std::invalid_argument("Shape dimensions must be greater than zero.(when using rand to create tensor)");
+        if (shape[i]==0||shape[i]>1000){
+            throw std::invalid_argument("Shape dimensions must be greater than zero and should not be too large.(when using rand to create tensor)");
         }
     }
     size_t total_number=1;
@@ -134,7 +229,7 @@ Tensor<double> Tensor<double>::rand(const std::vector<size_t>& shape) {
     }
     return Tensor<double>(data, shape);
 }
-//rand<>,随机舒适化tensor
+//rand<>,随机初始化tensor
 // int类型的实现
 template<>
 Tensor<int> Tensor<int>::rand(const std::vector<size_t>& shape) {
@@ -142,8 +237,8 @@ Tensor<int> Tensor<int>::rand(const std::vector<size_t>& shape) {
         throw std::invalid_argument("Shape cannot be empty.(when using rand to create tensor)");
     }
     for (size_t i = 0; i < shape.size(); i++){
-        if (shape[i]<=0){
-            throw std::invalid_argument("Shape dimensions must be greater than zero.(when using rand to create tensor)");
+        if (shape[i]==0||shape[i]>1000){
+            throw std::invalid_argument("Shape dimensions must be greater than zero and should not be too large.(when using rand to create tensor)");
         }
     }
     size_t total_number=1;
@@ -167,8 +262,8 @@ Tensor<T> Tensor<T>::zeros(const std::vector<size_t>& shape) {
         throw std::invalid_argument("Shape cannot be empty.(when using zeros to create tensor)");
     }
     for (size_t i = 0; i < shape.size(); i++){
-        if (shape[i]<=0){
-            throw std::invalid_argument("Shape dimensions must be greater than zero.(when using zeros to create tensor)");
+        if (shape[i]==0||shape[i]>1000){
+            throw std::invalid_argument("Shape dimensions must be greater than zero and should not be too large.(when using zeros to create tensor)");
         }
     }
     size_t total_number=1;
@@ -185,8 +280,8 @@ Tensor<T> Tensor<T>::ones(const std::vector<size_t>& shape) {
         throw std::invalid_argument("Shape cannot be empty.(when using ones to create tensor)");
     }
     for (size_t i = 0; i < shape.size(); i++){
-        if (shape[i]<=0){
-            throw std::invalid_argument("Shape dimensions must be greater than zero.(when using ones to create tensor)");
+        if (shape[i]==0||shape[i]>1000){
+            throw std::invalid_argument("Shape dimensions must be greater than zero and should not be too large.(when using ones to create tensor)");
         }
     }
     size_t total_number=1;
@@ -202,9 +297,10 @@ Tensor<T> Tensor<T>::full(const std::vector<size_t>& shape, T value) {
     if (shape.empty()) {
         throw std::invalid_argument("Shape cannot be empty.(when using full to create tensor)");
     }
+    
     for (size_t i = 0; i < shape.size(); i++){
-        if (shape[i]<=0){
-            throw std::invalid_argument("Shape dimensions must be greater than zero.(when using full to create tensor)");
+        if (shape[i]==0||shape[i]>1000){
+            throw std::invalid_argument("Shape dimensions must be greater than zero and should not be too large.(when using full to create tensor)");
         }
     }
     size_t total_number=1;
@@ -213,4 +309,18 @@ Tensor<T> Tensor<T>::full(const std::vector<size_t>& shape, T value) {
     }
     return Tensor<T>(std::vector<T>(total_number, value), shape);
 }
+
+// 创建单位矩阵，发现需要限制这些张量的形状大小（不清楚怎么处理），尝试输入负数会导致尺寸爆炸。
+template<typename T>
+Tensor<T> Tensor<T>::eye(size_t size) {
+        if (size==0||size>1000){
+            throw std::invalid_argument("Shape dimensions must be greater than zero and should not be too large.(when using eye to create tensor)");
+        }
+        Tensor<T> mytensor=Tensor<T>::zeros({size,size});
+        for (size_t i = 0; i < size; i++)
+        {
+            mytensor({i,i})=1;
+        }
+        return mytensor;
+    }
 #endif // TENSOR_H
