@@ -1,4 +1,3 @@
-#include <iostream>
 #include "Tensor.h"
 
 using namespace ts;
@@ -22,12 +21,14 @@ int main()
 //    // mytensor6.print();
 //    // mytensor7.print();
     // Example usage
-    ts::Tensor<double> t1 = ts::Tensor<double>::rand({3, 3});
+    Tensor<double> t1 = Tensor<double>::rand({3, 3});
     t1.print();
-
-    ts::Tensor<double> t2 = t1(2); // Slicing along the second dimension
-    t2.print();
-
-    ts::Tensor<double> t3 = t1(2, {1,4}); // Slicing along the third dimension
-    t3.print();
+    Tensor<double> adder = Tensor<double>::rand({3,3});
+    adder.print();
+    Tensor<double> answer1 = t1.sub(adder);
+    answer1.print();
+    Tensor<double> answer2 = t1 -adder;
+    answer2.print();
+    Tensor<double> answer3 = t1.sub(3.0);
+    answer3.print();
 }
