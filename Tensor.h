@@ -27,7 +27,7 @@ namespace ts {
 
         Tensor(const std::vector<T> &data, const std::vector<size_t> &shape, size_t start_index, size_t end_index);
 
-// 获取Tensor形状
+        // 获取Tensor形状
         std::vector<size_t> get_shape() const;
 
         // 访问元素（非const版本）tensor({1,2,3...})
@@ -60,6 +60,25 @@ namespace ts {
         // 访问切片2
         Tensor<T> operator()(size_t index, std::vector<size_t> slice);
 
+        //add
+        Tensor<T> operator+(Tensor<T> adder);
+
+        Tensor <T> add(Tensor <T> adder);
+
+        Tensor <T> add(double value);
+
+        //sub
+        Tensor<T> operator-(Tensor<T> subtractor);
+
+        Tensor <T> sub(Tensor <T> subtractor);
+
+        Tensor <T> sub(double value);
+
+        Tensor <T> mul(const Tensor <T> &multiplier);
+
+        Tensor<T> operator*(const Tensor<T> &multi);
+
+        Tensor <T> mul(double scala);
     private:
         std::vector<T> data_; // 存储Tensor元素
 
@@ -69,6 +88,8 @@ namespace ts {
 
         // 计算多维索引对应的一维索引
         size_t calculate_index(const std::vector<size_t> &indexes) const;
+
+
 
     };
 
@@ -353,6 +374,12 @@ namespace ts {
 
         return sliced_tensor;
     }
+
+
+
+
+
+
 }
 
 
