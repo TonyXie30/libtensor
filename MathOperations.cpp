@@ -1,10 +1,11 @@
 #include <vector>
 #include <stdexcept>
 #include "Tensor.h"
+#include "cmath"
 
 using namespace ts;
 
-//Math operations
+// 1. Pointwise operations
 
 // add
 template<typename T>
@@ -140,7 +141,7 @@ Tensor<T> Tensor<T>::sub(double value) {
 
 // Mul for high-dimensional tensors
 template<typename T>
-Tensor<T> Tensor<T>::mul(const Tensor<T> &multiplier){
+Tensor<T> Tensor<T>::mul(const Tensor<T> &multiplier) {
     // Check if dimensions are compatible for multiplication
     for (size_t i = 0; i < shape_.size() - 1; ++i) {
         if (shape_[i] != multiplier.shape_[i]) {
@@ -185,7 +186,7 @@ Tensor<T> mul(const Tensor<T> &t1, const Tensor<T> &t2) {
 
 // Override * operator for high-dimensional tensor multiplication
 template<typename T>
-Tensor<T> Tensor<T>::operator*(const Tensor<T> &multi){
+Tensor<T> Tensor<T>::operator*(const Tensor<T> &multi) {
     return mul(*this, multi);
 }
 
@@ -205,9 +206,304 @@ Tensor<T> mul(const Tensor<T> &tensor, double scala) {
 
 // Scalar multiplication
 template<typename T>
-Tensor<T> Tensor<T>::mul(double scala){
+Tensor<T> Tensor<T>::mul(double scala) {
     return mul(*this, scala);
 }
 
 
-//divide operation
+// Divide operation for element-wise division
+template<typename T>
+Tensor<T> Tensor<T>::div(const Tensor<T> &tensor) {
+    // Check if dimensions are compatible for element-wise division
+    if (shape_ != tensor.get_shape()) {
+        throw std::invalid_argument("Incompatible dimensions for element-wise division");
+    }
+
+    // Create the result Tensor
+    Tensor<T> result = zeros(shape_);
+
+    // Perform element-wise division
+    for (size_t i = 0; i < data_.size(); ++i) {
+        if (tensor.data_[i] == 0) {
+            throw std::invalid_argument("Division by zero");
+        }
+        result.data_[i] = data_[i] / tensor.data_[i];
+    }
+
+    return result;
+}
+
+// Divide operation for high-dimensional tensor division
+template<typename T>
+Tensor<T> Tensor<T>::div(const Tensor<T> &t1, const Tensor<T> &t2) {
+    // Check if dimensions are compatible for tensor division
+    if (t1.get_shape().back() != t2.get_shape().front()) {
+        throw std::invalid_argument("Incompatible dimensions for tensor division");
+    }
+
+    // Calculate the resulting shape
+    std::vector<size_t> result_shape = t1.get_shape();
+    result_shape.back() = t2.get_shape().back();
+
+    // Create the result Tensor
+    Tensor<T> result = zeros(result_shape);
+
+    // Perform tensor division
+    for (size_t i = 0; i < t1.get_shape().front(); ++i) {
+        for (size_t j = 0; j < t2.get_shape().back(); ++j) {
+            for (size_t k = 0; k < t1.get_shape().back(); ++k) {
+                if (t2({k, j}) == 0) {
+                    throw std::invalid_argument("Division by zero");
+                }
+                result({i, j}) += t1({i, k}) / t2({k, j});
+            }
+        }
+    }
+
+    return result;
+}
+
+// Override / operator for high-dimensional tensor division
+template<typename T>
+Tensor<T> Tensor<T>::operator/(const Tensor<T> &dividend) {
+    return div(*this, dividend);
+}
+
+// Divide operation for scalar division
+template<typename T>
+Tensor<T> div(const Tensor<T> &tensor, double scalar) {
+    if (scalar == 0) {
+        throw std::invalid_argument("Division by zero");
+    }
+
+    // Create the result Tensor
+    Tensor<T> result = tensor;
+
+    // Perform scalar division
+    for (size_t i = 0; i < tensor.data_.size(); ++i) {
+        result.data_[i] /= scalar;
+    }
+
+    return result;
+}
+
+// Scalar division
+template<typename T>
+Tensor<T> Tensor<T>::div(double scalar) {
+    return div(*this, scalar);
+}
+
+
+template<typename T>
+Tensor<T> log(const Tensor<T> &tensor) {
+    // Create the result Tensor
+    Tensor<T> result = tensor;
+
+    // Perform element-wise logarithm
+    for (size_t i = 0; i < tensor.data_.size(); ++i) {
+        result.data_[i] = std::log(tensor.data_[i]);
+    }
+
+    return result;
+}
+
+// 1. pointwise operations end
+
+// 2. Reduction operations
+
+// Sum along a specified dimension for member function
+template<typename T>
+Tensor<T> Tensor<T>::sum(int dim) const {
+    if (dim < 0 || static_cast<size_t>(dim) >= shape_.size()) {
+        throw std::out_of_range("Invalid dimension for sum operation.");
+    }
+
+    // Calculate the new shape after summing along the specified dimension
+    std::vector<size_t> new_shape;
+    new_shape.reserve(shape_.size() - 1);
+
+    for (size_t i = 0; i < shape_.size(); ++i) {
+        if (static_cast<int>(i) != dim) {
+            new_shape.push_back(shape_[i]);
+        }
+    }
+
+    // Calculate the size of each slice along the specified dimension
+    size_t slice_size = shape_[dim];
+
+    // Calculate the number of slices along the specified dimension
+    size_t num_slices = data_.size() / (slice_size * shape_[dim]);
+
+    // Calculate the new data vector after summing along the specified dimension
+    std::vector<T> new_data;
+    new_data.reserve(data_.size() / shape_[dim]);
+
+    for (size_t i = 0; i < num_slices; ++i) {
+        T sum = 0;
+
+        for (size_t j = 0; j < slice_size; ++j) {
+            size_t index = i * shape_[dim] * slice_size + j;
+            sum += data_[index];
+        }
+
+        new_data.push_back(sum);
+    }
+
+    return Tensor<T>(new_data, new_shape);
+}
+
+// Sum along a specified dimension for non-member function
+template<typename T>
+Tensor<T> sum(const Tensor<T> &tensor, int dim) {
+    return tensor.sum(dim);
+}
+
+// Mean along a specified dimension for member function
+template<typename T>
+Tensor<double> Tensor<T>::mean(int dim) {
+    if (dim < 0 || static_cast<size_t>(dim) >= shape_.size()) {
+        throw std::out_of_range("Invalid dimension for mean operation.");
+    }
+
+    // Calculate the new shape after taking mean along the specified dimension
+    std::vector<size_t> new_shape;
+    new_shape.reserve(shape_.size() - 1);
+
+    for (size_t i = 0; i < shape_.size(); ++i) {
+        if (static_cast<int>(i) != dim) {
+            new_shape.push_back(shape_[i]);
+        }
+    }
+
+    // Calculate the size of each slice along the specified dimension
+    size_t slice_size = shape_[dim];
+
+    // Calculate the number of slices along the specified dimension
+    size_t num_slices = data_.size() / (slice_size * shape_[dim]);
+
+    // Calculate the new data vector after taking mean along the specified dimension
+    std::vector<double> new_data;
+    new_data.reserve(data_.size() / shape_[dim]);
+
+    for (size_t i = 0; i < num_slices; ++i) {
+        double sum = 0;
+
+        for (size_t j = 0; j < slice_size; ++j) {
+            size_t index = i * shape_[dim] * slice_size + j;
+            sum += static_cast<double>(data_[index]);
+        }
+
+        new_data.push_back(sum / static_cast<double>(slice_size));
+    }
+
+    return Tensor<double>(new_data, new_shape);
+}
+
+// Mean along a specified dimension for non-member function
+template<typename T>
+Tensor<double> mean(const Tensor<T> &tensor, int dim) {
+    return tensor.mean(dim);
+}
+
+template<typename T>
+Tensor<T> max(const Tensor<T> &tensor, int dim){
+    return tensor.max(dim);
+}
+
+template<typename T>
+Tensor<T> Tensor<T>::max(int dim){
+    Tensor<T> tensor = *this;
+    if (dim < 0 || static_cast<size_t>(dim) >= tensor.get_shape().size()) {
+        throw std::out_of_range("Invalid dimension for max operation.");
+    }
+
+    // Calculate the new shape after finding max along the specified dimension
+    std::vector<size_t> new_shape;
+    new_shape.reserve(tensor.get_shape().size() - 1);
+
+    for (size_t i = 0; i < tensor.get_shape().size(); ++i) {
+        if (static_cast<int>(i) != dim) {
+            new_shape.push_back(tensor.get_shape()[i]);
+        }
+    }
+
+    // Calculate the size of each slice along the specified dimension
+    size_t slice_size = tensor.get_shape()[dim];
+
+    // Calculate the number of slices along the specified dimension
+    size_t num_slices = tensor.size() / (slice_size * tensor.get_shape()[dim]);
+
+    // Calculate the new data vector after finding max along the specified dimension
+    std::vector<T> new_data;
+    new_data.reserve(tensor.size() / tensor.get_shape()[dim]);
+
+    for (size_t i = 0; i < num_slices; ++i) {
+        T max_val = std::numeric_limits<T>::min();
+
+        for (size_t j = 0; j < slice_size; ++j) {
+            size_t index = i * tensor.get_shape()[dim] * slice_size + j;
+            max_val = std::max(max_val, tensor(index));
+        }
+
+        new_data.push_back(max_val);
+    }
+
+    return Tensor<T>(new_data, new_shape);
+}
+
+template<typename T>
+Tensor<T> min(const Tensor<T> &tensor, int dim){
+    return tensor.min(dim);
+}
+
+template<typename T>
+Tensor<T> Tensor<T>::min(int dim){
+    Tensor<T> tensor = *this;
+    if (dim < 0 || static_cast<size_t>(dim) >= tensor.get_shape().size()) {
+        throw std::out_of_range("Invalid dimension for min operation.");
+    }
+
+    // Calculate the new shape after finding min along the specified dimension
+    std::vector<size_t> new_shape;
+    new_shape.reserve(tensor.get_shape().size() - 1);
+
+    for (size_t i = 0; i < tensor.get_shape().size(); ++i) {
+        if (static_cast<int>(i) != dim) {
+            new_shape.push_back(tensor.get_shape()[i]);
+        }
+    }
+
+    // Calculate the size of each slice along the specified dimension
+    size_t slice_size = tensor.get_shape()[dim];
+
+    // Calculate the number of slices along the specified dimension
+    size_t num_slices = tensor.size() / (slice_size * tensor.get_shape()[dim]);
+
+    // Calculate the new data vector after finding min along the specified dimension
+    std::vector<T> new_data;
+    new_data.reserve(tensor.size() / tensor.get_shape()[dim]);
+
+    for (size_t i = 0; i < num_slices; ++i) {
+        T min_val = std::numeric_limits<T>::max();
+
+        for (size_t j = 0; j < slice_size; ++j) {
+            size_t index = i * tensor.get_shape()[dim] * slice_size + j;
+            min_val = std::min(min_val, tensor(index));
+        }
+
+        new_data.push_back(min_val);
+    }
+
+    return Tensor<T>(new_data, new_shape);
+}
+// 2. Reduction operations end
+
+
+// 3. Comparison operations
+
+
+
+
+
+
+// 3. Comparison operations end

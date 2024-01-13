@@ -79,6 +79,14 @@ namespace ts {
         Tensor<T> operator*(const Tensor<T> &multi);
 
         Tensor <T> mul(double scala);
+
+        Tensor<T> div(const Tensor<T> &t1, const Tensor<T> &t2);
+
+        Tensor<T> div(double scalar);
+
+        Tensor<T> operator/(const Tensor<T> &dividend);
+
+        Tensor<T> div(const Tensor<T> &tensor);
     private:
         std::vector<T> data_; // 存储Tensor元素
 
@@ -89,8 +97,13 @@ namespace ts {
         // 计算多维索引对应的一维索引
         size_t calculate_index(const std::vector<size_t> &indexes) const;
 
+        Tensor<T> sum(int dim) const;
 
+        Tensor<double> mean(int dim);
 
+        Tensor<T> max(int dim);
+
+        Tensor<T> min(int dim);
     };
 
 // 构造函数实现
