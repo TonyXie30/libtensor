@@ -60,6 +60,10 @@ namespace ts {
         // 访问切片2
         Tensor<T> operator()(size_t index, std::vector<size_t> slice);
 
+        //  cat join
+        template <typename U>
+        friend Tensor<U> cat(const std::vector<Tensor<U>> &tensors, size_t dim);
+
         //add
         Tensor<T> operator+(Tensor<T> adder);
 
