@@ -282,6 +282,78 @@ namespace ts{
         return sliced_tensor;
     }
 
+    template <typename T>
+    Tensor<T> cat(const std::vector<Tensor<T>> &tensors, size_t dim)
+    {
+        if (tensors.empty())
+        {
+            throw std::invalid_argument("Tensor list is empty.");
+        }
+
+        // 检查维度是否有效
+        for (const auto &tensor : tensors)
+        {
+            if (dim >= tensor.get_shape().size())
+            {
+                throw std::invalid_argument("Invalid dimension for concatenation.");
+            }
+        }
+
+        // 检查连接的张量维度是否一致
+        for (size_t i = 1; i < tensors.size(); ++i)
+        {
+            if (tensors[i].get_shape() != tensors[0].get_shape())
+            {
+                throw std::invalid_argument("Tensor shapes do not match for concatenation.");
+            }
+        }
+
+        // 计算新张量的形状
+        std::vector<size_t> new_shape = tensors[0].get_shape();
+        size_t total_dim_size = 0;
+        for (const auto &tensor : tensors)
+        {
+            total_dim_size += tensor.get_shape()[dim];
+        }
+        new_shape[dim] = total_dim_size;
+
+        // 创建新张量
+        Tensor<int> result = Tensor<int>::zeros(new_shape);
+
+        // 进行连接操作
+        size_t offset = 0;
+        for (const auto &tensor : tensors)
+        {
+            std::vector<size_t> indexes(new_shape.size(), 0);
+            for (size_t i = 0; i < tensor.get_shape()[0]; ++i)
+            {
+                if (dim == 0)
+                    indexes[0] = i + offset;
+                else
+                    indexes[0] = i;
+
+                for (size_t j = 0; j < tensor.get_shape().size(); ++j)
+                {
+                    if (dim == 1)
+                        indexes[1] = j + offset;
+                    else
+                        indexes[1] = j;
+                    if (j == 1)
+                    {
+                        continue;
+                    }
+                    for (size_t k = 0; k < tensor.get_shape()[1]; k++)
+                    {
+                        result({indexes[0], indexes[1] + k}) = tensor({i, k});
+                    }
+                }
+            }
+            offset += tensor.get_shape()[dim];
+        }
+
+        return result;
+    }
+
 
 }
 template class ts::Tensor<int>;
