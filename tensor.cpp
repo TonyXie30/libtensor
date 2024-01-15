@@ -302,9 +302,9 @@ namespace ts{
         // 检查连接的张量维度是否一致
         for (size_t i = 1; i < tensors.size(); ++i)
         {
-            if (tensors[i].get_shape() != tensors[0].get_shape())
+            if (tensors[i].get_shape()[dim] != tensors[0].get_shape()[dim])
             {
-                throw std::invalid_argument("Tensor shapes do not match for concatenation.");
+                throw std::invalid_argument("Invalid tensor shapes for concatenation.");
             }
         }
 
@@ -318,41 +318,69 @@ namespace ts{
         new_shape[dim] = total_dim_size;
 
         // 创建新张量
-        Tensor<int> result = Tensor<int>::zeros(new_shape);
+        Tensor<T> result = Tensor<T>::zeros(new_shape);
 
         // 进行连接操作
-        size_t offset = 0;
+        std::vector<size_t> indexes(new_shape.size(), 0);
+        size_t start_index = 0;
         for (const auto &tensor : tensors)
         {
-            std::vector<size_t> indexes(new_shape.size(), 0);
-            for (size_t i = 0; i < tensor.get_shape()[0]; ++i)
-            {
-                if (dim == 0)
-                    indexes[0] = i + offset;
-                else
-                    indexes[0] = i;
-
-                for (size_t j = 0; j < tensor.get_shape().size(); ++j)
-                {
-                    if (dim == 1)
-                        indexes[1] = j + offset;
-                    else
-                        indexes[1] = j;
-                    if (j == 1)
-                    {
-                        continue;
-                    }
-                    for (size_t k = 0; k < tensor.get_shape()[1]; k++)
-                    {
-                        result({indexes[0], indexes[1] + k}) = tensor({i, k});
-                    }
-                }
-            }
-            offset += tensor.get_shape()[dim];
+            recursiveCat(tensor, result, dim, indexes, 0, start_index);
+            start_index += tensor.get_shape()[dim];
         }
 
         return result;
     }
+
+    template <typename T>
+    void recursiveCat(const Tensor<T> &input, Tensor<T> &output, size_t dim, std::vector<size_t> &indexes, size_t current_dim, size_t start_index)
+    {
+        if (current_dim == dim)
+        {
+            for (size_t i = 0; i < input.get_shape()[dim]; ++i)
+            {
+                indexes[dim] = start_index + i;
+                recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
+            }
+        }
+        else if (current_dim < output.get_shape().size())
+        {
+            for (size_t i = 0; i < input.get_shape()[current_dim]; ++i)
+            {
+                indexes[current_dim] = i;
+                recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
+            }
+        }
+        else
+        {
+            auto input_index = indexes;
+            input_index[dim] -= start_index; // 确保 output_index[dim] 不超过 input 的 dim 维度大小
+            output(indexes) = input(input_index);
+        }
+    }
+    template <typename T>
+    Tensor<T> tile(const Tensor<T> &tensor, const std::vector<size_t> &dims)
+    {
+        if (dims.size() != tensor.get_shape().size())
+        {
+            throw std::invalid_argument("Dimensions for tiling do not match the tensor shape.");
+        }
+
+        Tensor<int> result = tensor;
+        size_t count = 0;
+        Tensor<int> my_tensor = tensor;
+        for (size_t dim : dims)
+        {
+            for (size_t i = 1; i < dim; i++)
+            {
+                result = ts::cat<int>({result, my_tensor}, count);
+            }
+            count++;
+            my_tensor = result;
+        }
+        return result;
+    }
+}
 
 
 }
