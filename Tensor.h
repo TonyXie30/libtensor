@@ -60,9 +60,17 @@ namespace ts {
         // 访问切片2
         Tensor<T> operator()(size_t index, std::vector<size_t> slice);
 
-        //  cat join
+        // 连接tensor
         template <typename U>
         friend Tensor<U> cat(const std::vector<Tensor<U>> &tensors, size_t dim);
+
+        // 重复tensor
+        template <typename U>
+        friend Tensor<U> tile(const Tensor<U> &tensor, const std::vector<size_t> &dims);
+
+        // 递归连接高维张量的辅助函数
+        template <typename U>
+        friend void recursiveCat(const Tensor<U> &input, Tensor<U> &output, size_t dim, std::vector<size_t> &indexes, size_t current_dim, size_t start_index);
 
         //add
         Tensor<T> operator+(Tensor<T> adder);
