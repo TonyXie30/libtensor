@@ -7,8 +7,10 @@ int main()
     //1.1
     Tensor<int> mytensor1({1,2,3,4,5,6,7,8},{2,2,2});
     mytensor1.print();
-    auto mytensor2=mytensor1.slice({1});
+    auto mytensor2=mytensor1.slice({1,Slice(0,1)});
     mytensor2.print();
+    mytensor2({0,0,1})=2;
+    mytensor1.print();
 //    //1.2
 //    Tensor<int> mytensor2=Tensor<int>::rand({1,2,3,4,5});
 //    Tensor<double> mytensor3=Tensor<double>::rand({1,2,3,4,5});
