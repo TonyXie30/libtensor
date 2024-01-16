@@ -3,53 +3,52 @@
 namespace ts{
     template<typename T>
     Tensor<T>::Tensor(const std::vector<T> &data, const std::vector<size_t> &shape)
-            : data_(data), shape_(shape) {
+        : data_(std::make_shared<std::vector<T>>(data)), shape_(shape), is_slice_(false) {
+        // 验证形状是否有效
         if (shape.empty()) {
             throw std::invalid_argument("Shape cannot be empty.(when create tensor)");
         }
-        for (size_t i = 0; i < shape_.size(); i++) {
-            if (shape[i] == 0 || shape[i] > 1000) {
-                throw std::invalid_argument(
-                        "Shape dimensions must be greater than zero and should not be too large.(when create tensor)");
+
+        // 验证每个维度的大小
+        for (size_t dim : shape) {
+            if (dim == 0 || dim > 1000) {
+                throw std::invalid_argument("Shape dimensions must be greater than zero and should not be too large.(when create tensor)");
             }
         }
+
+        // 计算步长
         strides_.resize(shape_.size());
         size_t stride = 1;
-        for (size_t i = shape_.size(); i-- > 0;) {
+        for (int i = shape_.size() - 1; i >= 0; --i) {
             strides_[i] = stride;
             stride *= shape_[i];
         }
-        if (data_.size() != stride) {
+        slices_.clear();
+        // 验证数据大小
+        if (data_->size() != stride) {
             throw std::logic_error("Data size does not match the tensor shape.(when create tensor)");
         }
     }
-
-// 构造函数-1.1
     template<typename T>
-    Tensor<T>::Tensor(const std::vector<T> &data, const std::vector<size_t> &shape, size_t start_index,
-                      size_t end_index)
-            : data_(data), shape_(shape) {
-        if (shape.empty()) {
-            throw std::invalid_argument("Shape cannot be empty.(when create tensor)");
+    Tensor<T>::Tensor(std::shared_ptr<std::vector<T>> data, 
+                  const std::vector<size_t> &shape, 
+                  const std::vector<Slice> &slices, 
+                  const std::vector<size_t> &strides)
+    : data_(std::move(data)), shape_(shape), slices_(slices), strides_(strides), is_slice_(true) {
+
+        // 检查形状、切片和步长的有效性
+        if (shape.size() != slices.size() || shape.size() != strides.size()) {
+            throw std::invalid_argument("Shape, slices, and strides must have the same size.");
         }
 
-        // Validate the start index
-        if (start_index >= data_.size()) {
-            throw std::out_of_range("Start index out of range.(when create tensor)");
-        }
+        // for (size_t i = 0; i < shape.size(); ++i) {
+        //     if (slices[i].end > shape[i]) {
+        //         throw std::out_of_range("Slice end cannot be greater than the dimension size.");
+        //     }
+        // }
 
-        // Calculate strides starting from the specified index
-        strides_.resize(shape_.size());
-        size_t stride = 1;
-        for (size_t i = shape_.size(); i-- > 0;) {
-            strides_[i] = stride;
-            stride *= shape_[i];
-        }
-
-        // Adjust data and shape based on the starting index
-        data_ = std::vector<T>(data_.begin() + start_index, data_.begin() + end_index);
-        shape_[0] = data_.size();
     }
+
 
 // 获取Tensor形状实现
     template<typename T>
@@ -60,13 +59,14 @@ namespace ts{
 // 访问元素实现（非const版本）
     template<typename T>
     T &Tensor<T>::operator()(const std::vector<size_t> &indexes) {
-        return data_[calculate_index(indexes)];
+        return (*data_)[calculate_index(indexes)];
     }
+
 
 // 访问元素实现（const版本）
     template<typename T>
     const T &Tensor<T>::operator()(const std::vector<size_t> &indexes) const {
-        return data_[calculate_index(indexes)];
+        return (*data_)[calculate_index(indexes)];
     }
 
 // 计算索引实现
@@ -75,34 +75,68 @@ namespace ts{
         if (indexes.size() != shape_.size()) {
             throw std::invalid_argument("Dimension mismatch.(when use index)");
         }
-        for (size_t i = 0; i < indexes.size(); i++) {
+        size_t index = 0;
+        for (size_t i = 0; i < indexes.size(); ++i) {
+            if (is_slice_ && (indexes[i] < 0 || indexes[i] >= slices_[i].end-slices_[i].start)) {
+                throw std::out_of_range("Tensor index out of slice range.(when use index)");
+            }
             if (indexes[i] >= shape_[i]) {
                 throw std::out_of_range("Tensor index out of range.(when use index)");
             }
-        }
-        size_t index = 0;
-        for (size_t i = 0; i < indexes.size(); ++i) {
-            index += strides_[i] * indexes[i];
+            size_t adjusted_index = is_slice_ ? indexes[i] + slices_[i].start : indexes[i];
+            index += strides_[i] * adjusted_index;
         }
         return index;
     }
 
-//输出张量结构与元素的实现
-    template<typename T>
-    void Tensor<T>::print() const {
-        int numbers = 0;
-        auto stride = strides_[strides_.size() - 2];
-        for (size_t i = 0; i < data_.size(); i++) {
-            numbers++;
-            std::cout << data_[i] << " ";
-            if (numbers == stride) {
-                numbers = 0;
-                std::cout << std::endl;
-            }
-        }
 
+    //输出张量结构与元素的实现
+    template<typename T>
+    void printTensor(const std::vector<T>& data, 
+                    const std::vector<size_t>& shape, 
+                    const std::vector<size_t>& strides, 
+                    const std::vector<Slice>& slices,
+                    bool is_slice,
+                    size_t index = 0, 
+                    size_t dimension = 0) {
+        if (dimension == shape.size() - 1) {
+            std::cout << "[";
+            for (size_t i = 0; i < shape[dimension]; ++i) {
+                // 计算实际索引，考虑到切片的起始位置和步长
+                size_t actual_index = index;
+                if (is_slice) {
+                    actual_index += (slices[dimension].start + i) * strides[dimension];
+                } else {
+                    actual_index += i * strides[dimension];
+                }
+                std::cout << data[actual_index];
+                if (i < shape[dimension] - 1) std::cout <<", ";
+            }
+            std::cout << "]";
+        } else {
+            std::cout << "[";
+            for (size_t i = 0; i < shape[dimension]; ++i) {
+            // 计算下一维度的索引
+            size_t next_index = index;
+            if (is_slice) {
+            // 如果是切片，考虑到切片的起始位置和步长
+            next_index += (slices[dimension].start + i) * strides[dimension];
+            } else {
+            next_index += i * strides[dimension];
+            }
+            printTensor(data, shape, strides, slices, is_slice, next_index, dimension + 1);
+            if (i < shape[dimension] - 1) std::cout << ", ";
+            }
+            std::cout << "]";
+        }
+        if (dimension == 0) std::cout << std::endl;
     }
 
+    template<typename T>
+    void Tensor<T>::print() const {
+    // 检查是否是切片，如果是，传递切片信息
+    printTensor(*data_, shape_, strides_, slices_, is_slice_);
+    }
 
 //rand<>,随机初始化tensor
 //double类型实现
@@ -232,158 +266,149 @@ namespace ts{
         return mytensor;
     }
 
-// Tensor operations
-
-// 访问切片
+//切片
     template<typename T>
-    Tensor<T> Tensor<T>::operator()(size_t index) {
-        size_t shape = shape_[0];
-
-        if (index >= shape) {
-            throw std::out_of_range("Invalid index for slicing.");
+    Tensor<T> Tensor<T>::slice(const std::vector<std::variant<size_t, Slice>>& slices) const {
+        if (slices.size() > shape_.size()) {
+            throw std::invalid_argument("Number of slices cannot exceed tensor dimensions.");
         }
 
-        // Calculate the starting index for the sliced dimension
-        size_t start_index = index * strides_[0];
-        size_t end_index = start_index + strides_[0];
-        // Create a new tensor with the same data but a different shape
-        Tensor<T> sliced_tensor(data_, shape_, start_index, end_index);
+        // 新的形状和切片
+        std::vector<size_t> new_shape;
+        std::vector<Slice> new_slices;
 
-        return sliced_tensor;
-    }
-
-//切片方式2
-    template<typename T>
-    Tensor<T> Tensor<T>::operator()(size_t index, std::vector<size_t> slice) {
-        size_t shape = shape_[0];
-
-        if (index >= shape) {
-            throw std::out_of_range("Invalid index for slicing.");
-        }
-
-        if (slice.size()!=2){
-            throw std::invalid_argument("not a valid slice input");
-        }
-
-        if (slice[0]<0&&slice[1]>strides_[0]){
-            throw std::invalid_argument("Index out of bound");
-        }
-        size_t start = slice[0];
-        size_t end = slice[1];
-
-        // Calculate the starting index for the sliced dimension
-        size_t start_index = index * strides_[0];
-        // Now calculate the detailed slice
-        size_t end_index = start_index + end;
-        start_index += start;
-        // Create a new tensor with the same data but a different shape
-        Tensor<T> sliced_tensor(data_, shape_, start_index, end_index);
-
-        return sliced_tensor;
-    }
-
-    template <typename T>
-    Tensor<T> cat(const std::vector<Tensor<T>> &tensors, size_t dim)
-    {
-        if (tensors.empty())
-        {
-            throw std::invalid_argument("Tensor list is empty.");
-        }
-
-        // 检查维度是否有效
-        for (const auto &tensor : tensors)
-        {
-            if (dim >= tensor.get_shape().size())
-            {
-                throw std::invalid_argument("Invalid dimension for concatenation.");
+        for (size_t i = 0; i < slices.size(); ++i) {
+            if (std::holds_alternative<size_t>(slices[i])) {
+                // 单个索引的情况
+                size_t index = std::get<size_t>(slices[i]);
+                if (index >= shape_[i]) {
+                    throw std::out_of_range("Index out of range for dimension " + std::to_string(i));
+                }
+                new_shape.push_back(1);  // 单个索引将形状缩减为1
+                new_slices.push_back(Slice(index, index + 1)); // 创建一个单元素的Slice
+            } else {
+                // Slice对象的情况
+                Slice s = std::get<Slice>(slices[i]);
+                if (s.start >= s.end || s.end > shape_[i]) {
+                throw std::out_of_range("Invalid slice range for dimension " + std::to_string(i));
+                }
+                new_shape.push_back(s.end - s.start);
+                new_slices.push_back(s);
             }
         }
-
-        // 检查连接的张量维度是否一致
-        for (size_t i = 1; i < tensors.size(); ++i)
-        {
-            if (tensors[i].get_shape()[dim] != tensors[0].get_shape()[dim])
-            {
-                throw std::invalid_argument("Invalid tensor shapes for concatenation.");
-            }
+    // 对于未指定的维度，保持原始形状和切片
+        for (size_t i = slices.size(); i < shape_.size(); ++i) {
+            new_shape.push_back(shape_[i]);
+            new_slices.push_back(Slice(0, shape_[i]));  // 整个维度的切片
         }
 
-        // 计算新张量的形状
-        std::vector<size_t> new_shape = tensors[0].get_shape();
-        size_t total_dim_size = 0;
-        for (const auto &tensor : tensors)
-        {
-            total_dim_size += tensor.get_shape()[dim];
-        }
-        new_shape[dim] = total_dim_size;
-
-        // 创建新张量
-        Tensor<T> result = Tensor<T>::zeros(new_shape);
-
-        // 进行连接操作
-        std::vector<size_t> indexes(new_shape.size(), 0);
-        size_t start_index = 0;
-        for (const auto &tensor : tensors)
-        {
-            recursiveCat(tensor, result, dim, indexes, 0, start_index);
-            start_index += tensor.get_shape()[dim];
-        }
-
-        return result;
+        // 创建一个新的Tensor对象，共享相同的数据但具有不同的形状和切片
+        return Tensor<T>(this->data_, new_shape, new_slices,strides_);
     }
 
-    template <typename T>
-    void recursiveCat(const Tensor<T> &input, Tensor<T> &output, size_t dim, std::vector<size_t> &indexes, size_t current_dim, size_t start_index)
-    {
-        if (current_dim == dim)
-        {
-            for (size_t i = 0; i < input.get_shape()[dim]; ++i)
-            {
-                indexes[dim] = start_index + i;
-                recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
-            }
-        }
-        else if (current_dim < output.get_shape().size())
-        {
-            for (size_t i = 0; i < input.get_shape()[current_dim]; ++i)
-            {
-                indexes[current_dim] = i;
-                recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
-            }
-        }
-        else
-        {
-            auto input_index = indexes;
-            input_index[dim] -= start_index; // 确保 output_index[dim] 不超过 input 的 dim 维度大小
-            output(indexes) = input(input_index);
-        }
-    }
-    template <typename T>
-    Tensor<T> tile(const Tensor<T> &tensor, const std::vector<size_t> &dims)
-    {
-        if (dims.size() != tensor.get_shape().size())
-        {
-            throw std::invalid_argument("Dimensions for tiling do not match the tensor shape.");
-        }
 
-        Tensor<int> result = tensor;
-        size_t count = 0;
-        Tensor<int> my_tensor = tensor;
-        for (size_t dim : dims)
-        {
-            for (size_t i = 1; i < dim; i++)
-            {
-                result = ts::cat<int>({result, my_tensor}, count);
-            }
-            count++;
-            my_tensor = result;
-        }
-        return result;
-    }
+//     template <typename T>
+//     Tensor<T> cat(const std::vector<Tensor<T>> &tensors, size_t dim)
+//     {
+//         if (tensors.empty())
+//         {
+//             throw std::invalid_argument("Tensor list is empty.");
+//         }
+
+//         // 检查维度是否有效
+//         for (const auto &tensor : tensors)
+//         {
+//             if (dim >= tensor.get_shape().size())
+//             {
+//                 throw std::invalid_argument("Invalid dimension for concatenation.");
+//             }
+//         }
+
+//         // 检查连接的张量维度是否一致
+//         for (size_t i = 1; i < tensors.size(); ++i)
+//         {
+//             if (tensors[i].get_shape()[dim] != tensors[0].get_shape()[dim])
+//             {
+//                 throw std::invalid_argument("Invalid tensor shapes for concatenation.");
+//             }
+//         }
+
+//         // 计算新张量的形状
+//         std::vector<size_t> new_shape = tensors[0].get_shape();
+//         size_t total_dim_size = 0;
+//         for (const auto &tensor : tensors)
+//         {
+//             total_dim_size += tensor.get_shape()[dim];
+//         }
+//         new_shape[dim] = total_dim_size;
+
+//         // 创建新张量
+//         Tensor<T> result = Tensor<T>::zeros(new_shape);
+
+//         // 进行连接操作
+//         std::vector<size_t> indexes(new_shape.size(), 0);
+//         size_t start_index = 0;
+//         for (const auto &tensor : tensors)
+//         {
+//             recursiveCat(tensor, result, dim, indexes, 0, start_index);
+//             start_index += tensor.get_shape()[dim];
+//         }
+
+//         return result;
+//     }
+
+    // template <typename T>
+    // void recursiveCat(const Tensor<T> &input, Tensor<T> &output, size_t dim, std::vector<size_t> &indexes, size_t current_dim, size_t start_index)
+    // {
+    //     if (current_dim == dim)
+    //     {
+    //         for (size_t i = 0; i < input.get_shape()[dim]; ++i)
+    //         {
+    //             indexes[dim] = start_index + i;
+    //             recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
+    //         }
+    //     }
+    //     else if (current_dim < output.get_shape().size())
+    //     {
+    //         for (size_t i = 0; i < input.get_shape()[current_dim]; ++i)
+    //         {
+    //             indexes[current_dim] = i;
+    //             recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
+    //         }
+    //     }
+    //     else
+    //     {
+    //         auto input_index = indexes;
+    //         input_index[dim] -= start_index; // 确保 output_index[dim] 不超过 input 的 dim 维度大小
+    //         output(indexes) = input(input_index);
+    //     }
+    // }
+    // template <typename T>
+    // Tensor<T> tile(const Tensor<T> &tensor, const std::vector<size_t> &dims)
+    // {
+    //     if (dims.size() != tensor.get_shape().size())
+    //     {
+    //         throw std::invalid_argument("Dimensions for tiling do not match the tensor shape.");
+    //     }
+
+    //     Tensor<int> result = tensor;
+    //     size_t count = 0;
+    //     Tensor<int> my_tensor = tensor;
+    //     for (size_t dim : dims)
+    //     {
+    //         for (size_t i = 1; i < dim; i++)
+    //         {
+    //             result = ts::cat<int>({result, my_tensor}, count);
+    //         }
+    //         count++;
+    //         my_tensor = result;
+    //     }
+    //     return result;
+    // }
 }
 
 
-}
+
 template class ts::Tensor<int>;
 template class ts::Tensor<double>;
 

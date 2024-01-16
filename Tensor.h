@@ -9,8 +9,15 @@
 #include <random>
 #include <iostream>
 #include <list>
-
+#include <memory>
+#include <variant>
 namespace ts {
+    struct Slice {
+        size_t start;
+        size_t end;//不包含
+
+        Slice(size_t s, size_t e) : start(s), end(e) {}
+    };
     // Tensor模板类定义
     template<typename T>
     class Tensor {
@@ -21,11 +28,11 @@ namespace ts {
 
         //默认构造函数
         Tensor() : Tensor(std::vector<T>(1, 0), {1}) {}
-
-        // 构造函数-1.1
         Tensor(const std::vector<T> &data, const std::vector<size_t> &shape);
-
-        Tensor(const std::vector<T> &data, const std::vector<size_t> &shape, size_t start_index, size_t end_index);
+        Tensor(std::shared_ptr<std::vector<T>> data, 
+                  const std::vector<size_t> &shape, 
+                  const std::vector<Slice> &slices, 
+                  const std::vector<size_t> &strides);
 
         // 获取Tensor形状
         std::vector<size_t> get_shape() const;
@@ -54,8 +61,8 @@ namespace ts {
         // 创建二维单位矩阵-1.3
         static Tensor<T> eye(size_t size);
 
-        // 访问切片
-        Tensor<T> operator()(size_t index);
+        
+        Tensor<T> slice(const std::vector<std::variant<size_t, Slice>>& slices) const;
 
         // 访问切片2
         Tensor<T> operator()(size_t index, std::vector<size_t> slice);
@@ -101,14 +108,15 @@ namespace ts {
         Tensor<T> div(const Tensor<T> &tensor);
 
     private:
-        std::vector<T> data_; // 存储Tensor元素
-
-        std::vector<size_t> shape_; // 存储Tensor形状
-
-        std::vector<size_t> strides_; // 存储各维度的步长
-
-        // 计算多维索引对应的一维索引
+        std::shared_ptr<std::vector<T>> data_;
+        std::vector<size_t> shape_;
+        std::vector<size_t> strides_;
+        
+        std::vector<Slice> slices_;
+        bool is_slice_;
         size_t calculate_index(const std::vector<size_t> &indexes) const;
+        
+        
 
         Tensor<T> sum(int dim) const;
 
