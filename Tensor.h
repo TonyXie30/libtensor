@@ -78,7 +78,11 @@ namespace ts {
         // 递归连接高维张量的辅助函数
         template <typename U>
         friend void recursiveCat(const Tensor<U> &input, Tensor<U> &output, size_t dim, std::vector<size_t> &indexes, size_t current_dim, size_t start_index);
+        // 静态成员函数转置
+        static Tensor<T> transpose(const Tensor<T> &tensor, size_t dim1, size_t dim2);
 
+        // 成员函数转置
+        Tensor<T> transpose(size_t dim1, size_t dim2) const;
         //add
         Tensor<T> operator+(Tensor<T> adder);
 
