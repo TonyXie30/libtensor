@@ -1,13 +1,12 @@
 #include "Tensor.h"
-//编译命令： g++ -o main main.cpp tensor.cpp -std=c++17 
-//用了个variant,好像只有17支持.
+
 using namespace ts;
 int main()
 {
     //1.1
-    Tensor<int> mytensor1({1,2,3,4,5,6,7,8},{2,2,2});
+    Tensor<double> mytensor1({1,2,3,4,5,6,7,8},{2,2,2});
     mytensor1.print();
-    auto mytensor2=mytensor1.slice({1,Slice(0,1)});
+    auto mytensor2=mytensor1.slice({1,{0,1}});
     mytensor2.print();
     mytensor2({0,0,1})=2;
     mytensor1.print();

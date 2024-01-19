@@ -10,13 +10,24 @@
 #include <iostream>
 #include <list>
 #include <memory>
-#include <variant>
+
 namespace ts {
     struct Slice {
         size_t start;
         size_t end;//不包含
 
         Slice(size_t s, size_t e) : start(s), end(e) {}
+        Slice(std::vector<size_t> se){
+            if (se.size()!=2)
+            {
+                 throw std::invalid_argument("The number of parameters is incorrect. (When creating slices)");
+            }else
+            {
+                start=se[0];
+                end=se[1];
+            }
+        }
+        Slice(size_t s) : start(s), end(s+1) {}
     };
     // Tensor模板类定义
     template<typename T>
@@ -62,7 +73,7 @@ namespace ts {
         static Tensor<T> eye(size_t size);
 
         
-        Tensor<T> slice(const std::vector<std::variant<size_t, Slice>>& slices) const;
+        Tensor<T> slice(const std::vector<Slice>& slices) const;
 
         // 访问切片2
         Tensor<T> operator()(size_t index, std::vector<size_t> slice);

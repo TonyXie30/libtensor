@@ -35,18 +35,10 @@ namespace ts{
                   const std::vector<Slice> &slices, 
                   const std::vector<size_t> &strides)
     : data_(std::move(data)), shape_(shape), slices_(slices), strides_(strides), is_slice_(true) {
-
         // 检查形状、切片和步长的有效性
         if (shape.size() != slices.size() || shape.size() != strides.size()) {
             throw std::invalid_argument("Shape, slices, and strides must have the same size.");
         }
-
-        // for (size_t i = 0; i < shape.size(); ++i) {
-        //     if (slices[i].end > shape[i]) {
-        //         throw std::out_of_range("Slice end cannot be greater than the dimension size.");
-        //     }
-        // }
-
     }
 
 
@@ -126,7 +118,11 @@ namespace ts{
             }
             printTensor(data, shape, strides, slices, is_slice, next_index, dimension + 1);
             if (i < shape[dimension] - 1) std::cout << ", ";
+            if (dimension == 0 && i < shape[dimension] - 1 ) std::cout << std::endl<<" ";
+                     
             }
+            
+            
             std::cout << "]";
         }
         if (dimension == 0) std::cout << std::endl;
@@ -268,7 +264,7 @@ namespace ts{
 
 //切片
     template<typename T>
-    Tensor<T> Tensor<T>::slice(const std::vector<std::variant<size_t, Slice>>& slices) const {
+    Tensor<T> Tensor<T>::slice(const std::vector<Slice>& slices) const {
         if (slices.size() > shape_.size()) {
             throw std::invalid_argument("Number of slices cannot exceed tensor dimensions.");
         }
@@ -278,23 +274,13 @@ namespace ts{
         std::vector<Slice> new_slices;
 
         for (size_t i = 0; i < slices.size(); ++i) {
-            if (std::holds_alternative<size_t>(slices[i])) {
-                // 单个索引的情况
-                size_t index = std::get<size_t>(slices[i]);
-                if (index >= shape_[i]) {
-                    throw std::out_of_range("Index out of range for dimension " + std::to_string(i));
-                }
-                new_shape.push_back(1);  // 单个索引将形状缩减为1
-                new_slices.push_back(Slice(index, index + 1)); // 创建一个单元素的Slice
-            } else {
-                // Slice对象的情况
-                Slice s = std::get<Slice>(slices[i]);
-                if (s.start >= s.end || s.end > shape_[i]) {
-                throw std::out_of_range("Invalid slice range for dimension " + std::to_string(i));
-                }
-                new_shape.push_back(s.end - s.start);
-                new_slices.push_back(s);
+            // Slice对象的情况
+            Slice s = slices[i];
+            if (s.start >= s.end || s.end > shape_[i]) {
+            throw std::out_of_range("Invalid slice range for dimension " + std::to_string(i));
             }
+            new_shape.push_back(s.end - s.start);
+            new_slices.push_back(s);
         }
     // 对于未指定的维度，保持原始形状和切片
         for (size_t i = slices.size(); i < shape_.size(); ++i) {
