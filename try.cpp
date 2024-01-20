@@ -43,8 +43,81 @@ using namespace ts;
 //         }
 //     }
 // }
+// void parse_einsum_str(
+//     const std::string& einsum_str,
+//     std::map<char, std::map<int, int>>& index_dim_map, // 输入张量维度映射
+//     std::map<char, int>& output_index_dim_map,         // 输出张量维度映射
+//     std::vector<char>& indices_order                   // 索引字符的顺序
+// ) {
+//     index_dim_map.clear();
+//     output_index_dim_map.clear();
+//     indices_order.clear();
+
+//     auto arrow_pos = einsum_str.find("->");
+//     auto input_str = einsum_str.substr(0, arrow_pos);
+//     // 确保 "->" 后面有字符
+//     auto output_str = (arrow_pos != std::string::npos && arrow_pos + 2 < einsum_str.length()) 
+//                       ? einsum_str.substr(arrow_pos + 2) 
+//                       : "";
+
+//     int tensor_index = 0;
+//     int dim_index = 0;
+//     for (char ch : input_str) {
+//         if (ch == ',') {
+//             tensor_index++;
+//             dim_index = 0;
+//             continue;
+//         }
+//         if (ch != ' ') {
+//             index_dim_map[ch][tensor_index] = dim_index++;
+//             if (std::find(indices_order.begin(), indices_order.end(), ch) == indices_order.end()) {
+//                 indices_order.push_back(ch);
+//             }
+//         }
+//     }
+
+//     // 解析输出字符串，记录输出张量中每个索引的维度位置
+//     if (!output_str.empty()) {
+//         dim_index = 0;
+//         for (char ch : output_str) {
+//             if (ch != ' ') {
+//                 output_index_dim_map[ch] = dim_index++;
+//             }
+//         }
+//     }
+// }
+template<typename T>
+void handle_ellipsis(
+    std::string& str,
+    const std::vector<Tensor<T>>& tensors,
+    std::vector<char>& indices_order,
+    bool is_input
+) {
+    size_t ellipsis_pos = str.find("...");
+    if (ellipsis_pos != std::string::npos) {
+        size_t tensor_dim = tensors[0].get_shape().size();
+        size_t explicit_dims = std::count_if(str.begin(), str.end(), [](char c) { return std::isalpha(c); });
+        size_t omitted_dims = tensor_dim - explicit_dims;
+
+        std::string new_indices;
+        char new_index_char = 'a';
+        for (size_t i = 0; i < omitted_dims; ++i) {
+            while (str.find(new_index_char) != std::string::npos) {
+                new_index_char++;
+            }
+            new_indices += new_index_char++;
+        }
+    
+        str.replace(ellipsis_pos, 3, new_indices);
+        if (is_input) {
+            indices_order.insert(indices_order.end(), new_indices.begin(), new_indices.end());
+        }
+    }
+}
+template<typename T>
 void parse_einsum_str(
     const std::string& einsum_str,
+    const std::vector<Tensor<T>>& tensors,
     std::map<char, std::map<int, int>>& index_dim_map, // 输入张量维度映射
     std::map<char, int>& output_index_dim_map,         // 输出张量维度映射
     std::vector<char>& indices_order                   // 索引字符的顺序
@@ -59,7 +132,10 @@ void parse_einsum_str(
     auto output_str = (arrow_pos != std::string::npos && arrow_pos + 2 < einsum_str.length()) 
                       ? einsum_str.substr(arrow_pos + 2) 
                       : "";
+    handle_ellipsis(input_str, tensors, indices_order, true);
 
+    // 处理输出字符串中的省略号
+    handle_ellipsis(output_str, tensors, indices_order, false);
     int tensor_index = 0;
     int dim_index = 0;
     for (char ch : input_str) {
@@ -285,7 +361,7 @@ Tensor<T> execute_einsum(
     std::map<char, std::map<int, int>> index_dim_map; 
     std::map<char, int> output_index_dim_map; 
     std::vector<char> indices_order; 
-    parse_einsum_str(einsum_str, index_dim_map, output_index_dim_map, indices_order);
+    parse_einsum_str(einsum_str, tensors , index_dim_map, output_index_dim_map, indices_order);
 
     // 检查维度一致性
     if (!check_dimension_consistency(tensors, index_dim_map)) {
@@ -344,19 +420,156 @@ int main() {
     // C.print();
     // result.print();
     try {
-        // 示例用法
-        auto A = Tensor<int>::rand({3});
-        auto B = Tensor<int>::rand({3});
-        std::vector<Tensor<int>> tensors = {A,B};
-        std::string einsum_str = "i,i->i";
-        std::string einsum_str1 = "i,i->";
+        // // 示例用法
+        // auto A = Tensor<int>::rand({2,3,4});
+        // auto B = Tensor<int>::rand({3});
+        // std::vector<Tensor<int>> tensors = {A};
+        // std::string einsum_str = "...jk->...kj";
+        // std::string einsum_str1 = "i,i->";
 
+        // Tensor<int> result = execute_einsum(tensors, einsum_str);
+        // // Tensor<int> result1 = execute_einsum(tensors, einsum_str1);
+
+        // // 打印结果
+        // A.print();
+        // result.print();
+        // // result1.print();
+        {
+        //2.transpose
+        std::cout<<"-------------Transpose---------------"<<std::endl;
+        auto A=Tensor<int>::rand({3,6});
+        std::vector<Tensor<int>> tensors = {A};
+        std::string einsum_str = "ij->ji";
         Tensor<int> result = execute_einsum(tensors, einsum_str);
-        Tensor<int> result1 = execute_einsum(tensors, einsum_str1);
-
-        // 打印结果
+        A.print();
         result.print();
-        result1.print();
+        }
+        {
+        //3.Permute
+        std::cout<<"-------------Permute---------------"<<std::endl;
+        auto A=Tensor<int>::rand({5,6,7,8});
+        std::vector<Tensor<int>> tensors = {A};
+        std::string einsum_str = "...ij->...ji";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        result.print();
+        }
+        {
+        //4.Reduce sum
+        std::cout<<"-------------Reduce sum---------------"<<std::endl;
+        auto A=Tensor<int>::rand({5,6});
+        std::vector<Tensor<int>> tensors = {A};
+        std::string einsum_str = "ij->";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        result.print();
+        }
+        {
+        //5.Sum along dimension
+        std::cout<<"-------------Sum along dimension---------------"<<std::endl;
+        auto A=Tensor<int>::rand({5,6});
+        std::vector<Tensor<int>> tensors = {A};
+        std::string einsum_str = "ij->i";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        result.print();
+        }
+        {
+        //6.Matrix and vector mul
+        std::cout<<"-------------Matrix and vector mul---------------"<<std::endl;
+        auto A=Tensor<int>::rand({5,6});
+        auto B=Tensor<int>::rand({6});
+        std::vector<Tensor<int>> tensors = {A,B};
+        std::string einsum_str = "ik,k->i";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        result.print();
+        }
+        {
+        //7.Matrix mul
+        std::cout<<"-------------Matrix mull---------------"<<std::endl;
+        auto A=Tensor<int>::rand({5,6});
+        auto B=Tensor<int>::rand({6,7});
+        std::vector<Tensor<int>> tensors = {A,B};
+        std::string einsum_str = "ik,kj->ij";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        result.print();
+        }
+        {
+        //8. Dot product
+        std::cout<<"------------- Dot product---------------"<<std::endl;
+        auto A=Tensor<int>::rand({6});
+        auto B=Tensor<int>::rand({6});
+        std::vector<Tensor<int>> tensors = {A,B};
+        std::string einsum_str = "i,i->";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        result.print();
+        }
+        {
+        //9. Pointwise mul and reduce sum
+        std::cout<<"------------- Pointwise mul and reduce sum---------------"<<std::endl;
+        auto A=Tensor<int>::rand({5,6});
+        auto B=Tensor<int>::rand({5,6});
+        std::vector<Tensor<int>> tensors = {A,B};
+        std::string einsum_str = "ij,ij->";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        result.print();
+        }
+        {
+        //10.  Outer product
+        std::cout<<"-------------  Outer product---------------"<<std::endl;
+        auto A=Tensor<int>::rand({5});
+        auto B=Tensor<int>::rand({6});
+        std::vector<Tensor<int>> tensors = {A,B};
+        std::string einsum_str = "i,j->ij";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        result.print();
+        }
+        {
+        //11.  Batch matrix mul
+        std::cout<<"------------- Batch matrix mul---------------"<<std::endl;
+        auto A=Tensor<int>::rand({5,6,7});
+        auto B=Tensor<int>::rand({5,7,8});
+        std::vector<Tensor<int>> tensors = {A,B};
+        std::string einsum_str = "ijk,ikl->ijl";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        result.print();
+        }
+        {
+        //12.  Tensor contraction
+        std::cout<<"------------- Batch matrix mul---------------"<<std::endl;
+        auto A=Tensor<int>::rand({5,6,7,8});
+        auto B=Tensor<int>::rand({4,5,6,7,7});
+        std::vector<Tensor<int>> tensors = {A,B};
+        std::string einsum_str = "pqrs,tuqvr->pstuv";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        result.print();
+        }  
+        {
+        //13.  Bilinear transformation
+        std::cout<<"-------------  Bilinear transformation---------------"<<std::endl;
+        auto A=Tensor<int>::rand({6,7});
+        auto B=Tensor<int>::rand({5,7,8});
+        std::vector<Tensor<int>> tensors = {A,B};
+        std::string einsum_str = "ik,jkl->ij";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        result.print();
+        }
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
