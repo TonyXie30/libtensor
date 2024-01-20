@@ -6,7 +6,7 @@ int main()
     //1.1
     Tensor<double> mytensor1({1,2,3,4,5,6,7,8},{2,2,2});
     mytensor1.print();
-    auto mytensor2=mytensor1.slice({1,{0,1}});
+    auto mytensor2=mytensor1.slice({1});
     mytensor2.print();
     mytensor2({0,0,1})=2;
     mytensor1.print();

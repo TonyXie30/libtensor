@@ -122,6 +122,14 @@ namespace ts {
 
         Tensor<T> div(const Tensor<T> &tensor);
 
+        // friend void recursive_einsum<T>(
+        // const std::vector<Tensor<T>>& tensors,
+        // Tensor<T>& result,
+        // const std::string& einsum_str,
+        // std::vector<int>& current_indices,
+        // int depth
+        // );
+
     private:
         std::shared_ptr<std::vector<T>> data_;
         std::vector<size_t> shape_;
