@@ -165,6 +165,14 @@ namespace ts
 
         Tensor<int> operator!=(Tensor<T> &tensor);
 
+        // friend void recursive_einsum<T>(
+        // const std::vector<Tensor<T>>& tensors,
+        // Tensor<T>& result,
+        // const std::string& einsum_str,
+        // std::vector<int>& current_indices,
+        // int depth
+        // );
+
     private:
         std::shared_ptr<std::vector<T>> data_;
         std::vector<size_t> shape_;
@@ -177,6 +185,9 @@ namespace ts
 
 
 
+        Tensor<T> max(int dim);
+
+        Tensor<T> min(int dim);
     };
     template<typename T>
     Tensor<T> broadcast(const Tensor<T>& input, const Tensor<T>& other);
@@ -184,7 +195,106 @@ namespace ts
     std::vector<size_t> calculate_broadcast_shape(const Tensor<T>& t1, const Tensor<T>& t2);
     template<typename T>
     std::vector<T> broadcastExtend(const Tensor<T>& input,std::vector<size_t> &target_shape);
-}
 
+    template <typename T>
+    Tensor<T> cat(const std::vector<Tensor<T>> &tensors, size_t dim)
+    {
+        if (tensors.empty())
+        {
+            throw std::invalid_argument("Tensor list is empty.");
+        }
+
+        // 检查维度是否有效
+        for (const auto &tensor : tensors)
+        {
+            if (dim >= tensor.get_shape().size())
+            {
+                throw std::invalid_argument("Invalid dimension for concatenation.");
+            }
+        }
+
+        // 检查连接的张量维度是否一致
+        // for (size_t i = 1; i < tensors.size(); ++i)
+        // {
+        //     if (tensors[i].get_shape()[dim] != tensors[0].get_shape()[dim])
+        //     {
+        //         throw std::invalid_argument("Invalid tensor shapes for concatenation.");
+        //     }
+        // }
+
+        // 计算新张量的形状
+        std::vector<size_t> new_shape = tensors[0].get_shape();
+        size_t total_dim_size = 0;
+        for (const auto &tensor : tensors)
+        {
+            total_dim_size += tensor.get_shape()[dim];
+        }
+        new_shape[dim] = total_dim_size;
+
+        // 创建新张量
+        Tensor<T> result = Tensor<T>::zeros(new_shape);
+
+        // 进行连接操作
+        std::vector<size_t> indexes(new_shape.size(), 0);
+        size_t start_index = 0;
+        for (const auto &tensor : tensors)
+        {
+            recursiveCat(tensor, result, dim, indexes, 0, start_index);
+            start_index += tensor.get_shape()[dim];
+        }
+
+        return result;
+    }
+
+    template <typename T>
+    void recursiveCat(const Tensor<T> &input, Tensor<T> &output, size_t dim, std::vector<size_t> &indexes, size_t current_dim, size_t start_index)
+    {
+        if (current_dim == dim)
+        {
+            for (size_t i = 0; i < input.get_shape()[dim]; ++i)
+            {
+                indexes[dim] = start_index + i;
+                recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
+            }
+        }
+        else if (current_dim < output.get_shape().size())
+        {
+            for (size_t i = 0; i < input.get_shape()[current_dim]; ++i)
+            {
+                indexes[current_dim] = i;
+                recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
+            }
+        }
+        else
+        {
+            auto input_index = indexes;
+            input_index[dim] -= start_index; // 确保 output_index[dim] 不超过 input 的 dim 维度大小
+            output(indexes) = input(input_index);
+        }
+    }
+
+    template <typename T>
+    Tensor<T> tile(const Tensor<T> &tensor, const std::vector<size_t> &dims)
+    {
+        // if (dims.size() != tensor.get_shape().size())
+        // {
+        //     throw std::invalid_argument("Dimensions for tiling do not match the tensor shape.");
+        // }
+
+        Tensor<int> result = tensor;
+        size_t count = 0;
+        Tensor<int> my_tensor = tensor;
+        for (size_t dim : dims)
+        {
+            for (size_t i = 1; i < dim; i++)
+            {
+                result = ts::cat<int>({result, my_tensor}, count);
+            }
+            count++;
+            my_tensor = result;
+        }
+        return result;
+    }
+}
 
 #endif // TENSOR_H

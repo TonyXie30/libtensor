@@ -50,6 +50,25 @@ namespace ts
         }
     }
 
+
+    template <typename T>
+    Tensor<T>::Tensor(std::shared_ptr<std::vector<T>> data,
+                      const std::vector<size_t> &shape,
+                      const std::vector<Slice> &slices,
+                      const std::vector<size_t> &strides,
+                      const int i)
+        : shape_(shape), slices_(slices), strides_(strides), is_slice_(false)
+    {
+        // 深拷贝数据
+        data_ = std::make_shared<std::vector<T>>(*data);
+
+        // 检查形状、切片和步长的有效性
+        if (shape.size() != strides.size())
+        {
+            throw std::invalid_argument("Shape and strides must have the same size.");
+        }
+    }
+
     // 获取Tensor形状实现
     template <typename T>
     std::vector<size_t> Tensor<T>::get_shape() const

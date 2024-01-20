@@ -4,12 +4,12 @@ using namespace ts;
 int main()
 {
     //1.1
-//    Tensor<double> mytensor1({1,2,3,4,5,6,7,8},{2,2,2});
-//    mytensor1.print();
-//    auto mytensor2=mytensor1.slice({1,{0,1}});
-//    mytensor2.print();
-//    mytensor2({0,0,1})=2;
-//    mytensor1.print();
+    Tensor<double> mytensor1({1,2,3,4,5,6,7,8},{2,2,2});
+    mytensor1.print();
+    auto mytensor2=mytensor1.slice({1});
+    mytensor2.print();
+    mytensor2({0,0,1})=2;
+    mytensor1.print();
 //    //1.2
 //    Tensor<int> mytensor2=Tensor<int>::rand({1,2,3,4,5});
 //    Tensor<double> mytensor3=Tensor<double>::rand({1,2,3,4,5});
@@ -25,14 +25,14 @@ int main()
 //    // mytensor6.print();
 //    // mytensor7.print();
     // Example usage
-     Tensor<double> t1 = Tensor<double>::rand({3, 3});
-     t1.print();
-     Tensor<double> adder = Tensor<double>::rand({3,3});
-     adder.print();
-     Tensor<double> answer1 = t1.mul(adder);
-     answer1.print();
-     Tensor<double> answer2 = t1 *adder;
-     answer2.print();
-     Tensor<double> answer3 = t1.sub(3.0);
-     answer3.print();
+    // Tensor<double> t1 = Tensor<double>::rand({3, 3});
+    // t1.print();
+    // Tensor<double> adder = Tensor<double>::rand({3,3});
+    // adder.print();
+    // Tensor<double> answer1 = t1.sub(adder);
+    // answer1.print();
+    // Tensor<double> answer2 = t1 -adder;
+    // answer2.print();
+    // Tensor<double> answer3 = t1.sub(3.0);
+    // answer3.print();
 }
