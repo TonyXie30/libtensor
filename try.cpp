@@ -5,6 +5,44 @@
 #include <algorithm>
 #include "Tensor.h"
 using namespace ts;
+// void parse_einsum_str(
+//     const std::string& einsum_str,
+//     std::map<char, std::map<int, int>>& index_dim_map, // 输入张量维度映射
+//     std::map<char, int>& output_index_dim_map,         // 输出张量维度映射
+//     std::vector<char>& indices_order                   // 索引字符的顺序
+// ) {
+//     index_dim_map.clear();
+//     output_index_dim_map.clear();
+//     indices_order.clear();
+
+//     auto arrow_pos = einsum_str.find("->");
+//     auto input_str = einsum_str.substr(0, arrow_pos);
+//     auto output_str = einsum_str.substr(arrow_pos + 2);
+
+//     int tensor_index = 0;
+//     int dim_index = 0;
+//     for (char ch : input_str) {
+//         if (ch == ',') {
+//             tensor_index++;
+//             dim_index = 0;
+//             continue;
+//         }
+//         if (ch != ' ') {
+//             index_dim_map[ch][tensor_index] = dim_index++;
+//             if (std::find(indices_order.begin(), indices_order.end(), ch) == indices_order.end()) {
+//                 indices_order.push_back(ch);
+//             }
+//         }
+//     }
+
+//     // 解析输出字符串，记录输出张量中每个索引的维度位置
+//     dim_index = 0;
+//     for (char ch : output_str) {
+//         if (ch != ' ') {
+//             output_index_dim_map[ch] = dim_index++;
+//         }
+//     }
+// }
 void parse_einsum_str(
     const std::string& einsum_str,
     std::map<char, std::map<int, int>>& index_dim_map, // 输入张量维度映射
@@ -17,7 +55,10 @@ void parse_einsum_str(
 
     auto arrow_pos = einsum_str.find("->");
     auto input_str = einsum_str.substr(0, arrow_pos);
-    auto output_str = einsum_str.substr(arrow_pos + 2);
+    // 确保 "->" 后面有字符
+    auto output_str = (arrow_pos != std::string::npos && arrow_pos + 2 < einsum_str.length()) 
+                      ? einsum_str.substr(arrow_pos + 2) 
+                      : "";
 
     int tensor_index = 0;
     int dim_index = 0;
@@ -36,13 +77,16 @@ void parse_einsum_str(
     }
 
     // 解析输出字符串，记录输出张量中每个索引的维度位置
-    dim_index = 0;
-    for (char ch : output_str) {
-        if (ch != ' ') {
-            output_index_dim_map[ch] = dim_index++;
+    if (!output_str.empty()) {
+        dim_index = 0;
+        for (char ch : output_str) {
+            if (ch != ' ') {
+                output_index_dim_map[ch] = dim_index++;
+            }
         }
     }
 }
+
 //检查各个数组对应维度是否相同，依据同一字母代表的各个张量的维度来比较。
 template<typename T>
 bool check_dimension_consistency(
@@ -103,6 +147,10 @@ Tensor<T> create_output_tensor(
     const std::vector<int>& dim_lengths,
     const std::map<char, int>& output_index_dim_map
 ) {
+    if (output_index_dim_map.empty()) {
+        // 输出是一个标量，创建一个包含单个元素的一维张量
+        return Tensor<T>::zeros({1});
+    }
     std::vector<size_t> shape(output_index_dim_map.size(), 0); // 初始化形状向量
 
     for (const auto& [index, dim_position] : output_index_dim_map) {
@@ -152,6 +200,9 @@ std::vector<size_t> generate_output_indices(
     const std::vector<int>& current_indices,
     const std::map<char, int>& output_index_dim_map
 ) {
+    if (output_index_dim_map.empty()) {
+        return std::vector<size_t>{0};
+    }
     std::vector<size_t> output_indices(output_tensor.get_shape().size(), 0); // 根据输出张量的维度大小初始化
 
     for (size_t i = 0; i < indices_order.size(); ++i) {
@@ -294,15 +345,18 @@ int main() {
     // result.print();
     try {
         // 示例用法
-        auto A = Tensor<int>::rand({2, 3});
+        auto A = Tensor<int>::rand({3});
         auto B = Tensor<int>::rand({3});
-        std::vector<Tensor<int>> tensors = {A, B};
-        std::string einsum_str = "ik,k->i";
+        std::vector<Tensor<int>> tensors = {A,B};
+        std::string einsum_str = "i,i->i";
+        std::string einsum_str1 = "i,i->";
 
         Tensor<int> result = execute_einsum(tensors, einsum_str);
+        Tensor<int> result1 = execute_einsum(tensors, einsum_str1);
 
         // 打印结果
         result.print();
+        result1.print();
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
