@@ -54,6 +54,9 @@ namespace ts
                const std::vector<size_t> &strides,
                const int i);
 
+        template <typename U>
+        friend U *get_data_address(const Tensor<U> &tensor);
+
         // 获取Tensor形状
         std::vector<size_t> get_shape() const;
 
