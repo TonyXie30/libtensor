@@ -607,7 +607,7 @@ namespace ts
             stride *= new_shape[i];
         }
         shape_ = new_shape;
-        return Tensor<T>(data_, new_shape, slices_, strides_, 0);
+        return *this;
     }
 
     // 在Tensor类外部实现静态函数
@@ -615,7 +615,7 @@ namespace ts
     Tensor<T> Tensor<T>::view(const Tensor<T> &tensor, const std::vector<size_t> &new_shape)
     {
 
-        Tensor<T> new_tensor(tensor.data_, tensor.shape_, tensor.slices_, tensor.strides_, 0);
+        Tensor<T> new_tensor(tensor.data_, tensor.shape_, tensor.slices_, tensor.strides_, 1);
 
         return new_tensor.view(new_shape);
     }
