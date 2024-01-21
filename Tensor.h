@@ -270,6 +270,60 @@ namespace ts
         }
         return result;
     }
+
+    template <typename T>
+    Tensor<T> Tensor<T>::permute(const Tensor<T> &tensor, const std::vector<size_t> &dims)
+    {
+        Tensor<T> new_tensor(tensor.data_, tensor.shape_, tensor.slices_, tensor.strides_, 1);
+        return new_tensor.permute(dims);
+    }
+
+    template <typename T>
+    Tensor<T> Tensor<T>::permute(const std::vector<size_t> &dims)
+    {
+        std::vector<size_t> new_shape;
+        Tensor<T> source(this->data_, this->shape_, this->slices_, this->strides_, 1);
+        for (size_t dim : dims)
+        {
+            new_shape.push_back(this->shape_[dim]); // 根据dims中的顺序获取新的形状
+        }
+
+        Tensor<T> permuted_tensor = view(new_shape); // 根据新的形状创建一个新张量
+
+        std::vector<size_t> indexes(permuted_tensor.get_shape().size(), 0);
+        std::vector<size_t> permuted_indexes(permuted_tensor.get_shape().size(), 0);
+
+        // 遍历原始张量，将元素复制到新张量的对应位置
+        recursivePermute(0, dims, indexes, permuted_indexes, source, permuted_tensor);
+        this->data_ = permuted_tensor.data_;
+
+        return permuted_tensor;
+    }
+
+    template <typename T>
+    void Tensor<T>::recursivePermute(size_t dim, const std::vector<size_t> &dims,
+                                     std::vector<size_t> &indexes, std::vector<size_t> &permuted_indexes,
+                                     const Tensor<T> source, Tensor<T> &destination)
+    {
+        if (dim == source.get_shape().size())
+        {
+            // 递归结束条件：已经遍历完所有维度
+            for (size_t i = 0; i < dims.size(); ++i)
+            {
+                permuted_indexes[i] = indexes[dims[i]]; // 根据dims中的顺序将索引重新排列
+            }
+            destination(permuted_indexes) = source(indexes); // 复制元素到新张量的对应位置
+        }
+        else
+        {
+            // 对于当前维度，遍历所有可能的索引值
+            for (size_t i = 0; i < source.get_shape()[dim]; ++i)
+            {
+                indexes[dim] = i;
+                recursivePermute(dim + 1, dims, indexes, permuted_indexes, source, destination);
+            }
+        }
+    }
 }
 
 #endif // TENSOR_H
