@@ -33,6 +33,7 @@ namespace ts
             }
         }
         Slice(size_t s) : start(s), end(s + 1) {}
+Slice() : start(0), end(0) {}
     };
     // Tensor模板类定义
     template <typename T>
@@ -630,6 +631,95 @@ namespace ts
                 indexes[dim] = i;
                 recursivePermute(dim + 1, dims, indexes, permuted_indexes, source, destination);
             }
+        }
+    }
+
+    template <typename T>
+    void saveTensorToFile(const Tensor<T> &tensor, const std::string &filename)
+    {
+        std::ofstream file(filename, std::ios::binary);
+        if (file.is_open())
+        {
+            // 写入形状
+            size_t shapeSize = tensor.get_shape().size();
+            file.write(reinterpret_cast<const char *>(&shapeSize), sizeof(size_t));
+            file.write(reinterpret_cast<const char *>(tensor.get_shape().data()), shapeSize * sizeof(size_t));
+
+            // 写入切片信息
+            size_t sliceSize = tensor.slices_.size();
+            file.write(reinterpret_cast<const char *>(&sliceSize), sizeof(size_t));
+            for (const auto &s : tensor.slices_)
+            {
+                file.write(reinterpret_cast<const char *>(&s.start), sizeof(size_t));
+                file.write(reinterpret_cast<const char *>(&s.end), sizeof(size_t));
+            }
+
+            // 写入步长信息
+            size_t strideSize = tensor.strides_.size();
+            file.write(reinterpret_cast<const char *>(&strideSize), sizeof(size_t));
+            std::cout << std::endl;
+            file.write(reinterpret_cast<const char *>(tensor.strides_.data()), strideSize * sizeof(size_t));
+
+            // 写入数据
+            file.write(reinterpret_cast<const char *>(tensor.data_->data()), tensor.data_->size() * sizeof(T));
+            file.close();
+            std::cout << "Tensor saved to " << filename << std::endl;
+        }
+        else
+        {
+            std::cerr << "Error: Unable to open file for writing" << std::endl;
+        }
+    }
+
+    template <typename T>
+    Tensor<T> loadTensorFromFile(const std::string &filename)
+    {
+        std::ifstream file(filename, std::ios::binary);
+        if (file.is_open())
+        {
+            size_t shapeSize;
+            file.read(reinterpret_cast<char *>(&shapeSize), sizeof(size_t));
+            std::vector<size_t> shape(shapeSize);
+            file.read(reinterpret_cast<char *>(shape.data()), shapeSize * sizeof(size_t));
+
+            // 读取切片信息
+            size_t sliceSize;
+            file.read(reinterpret_cast<char *>(&sliceSize), sizeof(size_t));
+            std::vector<Slice> slices(sliceSize);
+            for (size_t i = 0; i < sliceSize; ++i)
+            {
+                size_t start, end;
+                file.read(reinterpret_cast<char *>(&start), sizeof(size_t));
+                file.read(reinterpret_cast<char *>(&end), sizeof(size_t));
+                slices[i] = Slice(start, end);
+            }
+
+            // 读取步长信息
+            size_t strideSize;
+            file.read(reinterpret_cast<char *>(&strideSize), sizeof(size_t));
+            std::vector<size_t> strides(strideSize);
+            file.read(reinterpret_cast<char *>(strides.data()), strideSize * sizeof(size_t));
+
+            size_t dataSize = 1;
+            for (size_t s : shape)
+            {
+                dataSize *= s;
+            }
+            std::vector<T> data(dataSize);
+            std::shared_ptr<std::vector<T>> data_ = std::make_shared<std::vector<T>>(dataSize);
+            file.read(reinterpret_cast<char *>(data_->data()), dataSize * sizeof(T));
+            std::cout << std::endl;
+            Tensor<T> tensor(data_, shape, slices, strides, 1);
+
+            file.close();
+            std::cout << "Tensor loaded from " << filename << std::endl;
+
+            return tensor;
+        }
+        else
+        {
+            std::cerr << "Error: Unable to open file for reading" << std::endl;
+            return Tensor<T>();
         }
     }
 }
