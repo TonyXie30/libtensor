@@ -200,6 +200,7 @@ namespace ts
                      const std::vector<size_t> &strides,
                      const std::vector<Slice> &slices,
                      bool is_slice,
+                     bool is_bool,
                      size_t index = 0,
                      size_t dimension = 0)
     {
@@ -218,7 +219,13 @@ namespace ts
                 {
                     actual_index += i * strides[dimension];
                 }
-                std::cout << data[actual_index];
+                // bool值打印，当值为1时且isbool()成立，打印bool
+                if ((data[actual_index] == 1 || data[actual_index] == 0) && is_bool) {
+                    std::string ans = data[actual_index] == 1 ? "true" : "false";
+                    std::cout << ans;
+                } else{
+                    std::cout << data[actual_index];
+                }
                 if (i < shape[dimension] - 1)
                     std::cout << ", ";
             }
@@ -240,7 +247,7 @@ namespace ts
                 {
                     next_index += i * strides[dimension];
                 }
-                printTensor(data, shape, strides, slices, is_slice, next_index, dimension + 1);
+                printTensor(data, shape, strides, slices, is_slice, is_bool,next_index, dimension + 1);
                 if (i < shape[dimension] - 1)
                     std::cout << ", ";
                 if (dimension == 0 && i < shape[dimension] - 1)

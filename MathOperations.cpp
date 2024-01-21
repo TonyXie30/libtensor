@@ -123,49 +123,49 @@ namespace ts {
 
 // Divide operation for element-wise division
     template<typename T>
-    Tensor<T> Tensor<T>::div(const Tensor<T> &tensor) {
+    Tensor<double> Tensor<T>::div(const Tensor<T> &tensor) {
         // Check if dimensions are compatible for element-wise division
         if (shape_ != tensor.get_shape()) {
             throw std::invalid_argument("Incompatible dimensions for element-wise division");
         }
 
         // Create the result Tensor
-        Tensor<T> result = zeros(shape_);
+        std::vector<double> result;
 
         // Perform element-wise division
         for (size_t i = 0; i < data_->size(); ++i) {
             if ((*tensor.data_)[i] == 0) {
                 throw std::invalid_argument("Division by zero");
             }
-            (*result.data_)[i] = (*data_)[i] / (*tensor.data_)[i];
+            result.push_back((double)(*data_)[i] / (*tensor.data_)[i]);
         }
 
-        return result;
+        return Tensor<double>(result,shape_);
     }
 
 // Override / operator for high-dimensional tensor division
     template<typename T>
-    Tensor<T> Tensor<T>::operator/(const Tensor<T> &dividend) {
+    Tensor<double> Tensor<T>::operator/(const Tensor<T> &dividend) {
         return this->div(dividend);
     }
 
 // Scalar division
     template<typename T>
-    Tensor<T> Tensor<T>::div(double scalar) {
+    Tensor<double> Tensor<T>::div(double scalar) {
         Tensor<T> &tensor = *this;
         if (scalar == 0) {
             throw std::invalid_argument("Division by zero");
         }
 
         // Create the result Tensor
-        Tensor<T> result = tensor;
+        std::vector<double> result;
 
         // Perform scalar division
         for (size_t i = 0; i < tensor.data_->size(); ++i) {
-            (*result.data_)[i] /= scalar;
+            result.push_back((double)(*this->getData())[i]/scalar);
         }
 
-        return result;
+        return Tensor<double>(result,shape_);
     }
 
 // 1. pointwise operations end
