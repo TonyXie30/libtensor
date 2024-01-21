@@ -10,6 +10,7 @@
 #include <iostream>
 #include <list>
 #include <memory>
+#include "archives/binary.hpp"
 
 namespace ts
 {
@@ -208,6 +209,36 @@ namespace ts
 
         size_t calculate_index(const std::vector<size_t> &indexes) const;
 
+        friend class cereal::access;
+        template<class Archive>
+        void serialize(Archive & archive) {
+            // 手动序列化 std::shared_ptr
+            if (Archive::is_saving::value) {
+                size_t size = data_->size();
+                archive(size);
+                archive(cereal::binary_data(data_->data(), size * sizeof(typename std::vector<T>::value_type)));
+            } else {
+                size_t size;
+                archive(size);
+                data_ = std::make_shared<std::vector<T>>(size);
+                archive(cereal::binary_data(data_->data(), size * sizeof(typename std::vector<T>::value_type)));
+            }
+
+            // 手动序列化其他成员
+            archive(shape_, strides_, slices_, is_slice_, is_bool);
+
+            // 对于 std::vector<int>
+            if constexpr (std::is_same<T, int>::value) {
+                // 手动序列化 std::vector<int>
+                archive(cereal::make_nvp("data_int", *data_));
+            }
+                // 对于 std::vector<double>
+            else if constexpr (std::is_same<T, double>::value) {
+                // 手动序列化 std::vector<double>
+                archive(cereal::make_nvp("data_double", *data_));
+            }
+        }
+
     };
 
     //static Math operations declaration
@@ -297,6 +328,12 @@ namespace ts
     Tensor<int> ne(Tensor<T> &t1,Tensor<T> &t2){
         return t1.ne(t2);
     }
+
+    template<typename T>
+    Tensor<T> save(Tensor<T> tensor,std::string filename);
+
+    template<typename T>
+    Tensor<T> load(std::string filename);
 
     template<typename T>
     T *get_data_address(const Tensor<T> &tensor)
