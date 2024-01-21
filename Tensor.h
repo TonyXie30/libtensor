@@ -151,13 +151,13 @@ namespace ts {
 
         Tensor<T> div(const Tensor<T> &tensor);
 
-        Tensor<T> sum(int dim) const;
+        Tensor<double> sum(int dim) const;
 
         Tensor<double> mean(int dim) const;
 
-        Tensor<T> max(int dim) const;
+        Tensor<double> max(int dim) const;
 
-        Tensor<T> min(int dim) const;
+        Tensor<double> min(int dim) const;
 
         Tensor<int> eq(Tensor<T> &tensor);
 
@@ -263,7 +263,7 @@ namespace ts {
     }
 
     template<typename T>
-    Tensor<T> sum(const Tensor<T> &tensor, int dim) {
+    Tensor<double> sum(const Tensor<T> &tensor, int dim) {
         return tensor.sum(dim);
     }
 
@@ -273,12 +273,12 @@ namespace ts {
     }
 
     template<typename T>
-    Tensor<T> max(const Tensor<T> &tensor, int dim) {
+    Tensor<double> max(const Tensor<T> &tensor, int dim) {
         return tensor.max(dim);
     }
 
     template<typename T>
-    Tensor<T> min(const Tensor<T> &tensor, int dim) {
+    Tensor<double> min(const Tensor<T> &tensor, int dim) {
         return tensor.min(dim);
     }
 
@@ -290,6 +290,146 @@ namespace ts {
     template <typename T>
     Tensor<int> ne(Tensor<T> &t1,Tensor<T> &t2){
         return t1.ne(t2);
+    }
+
+    template <typename T>
+    std::pair<int,int> recursiveSum(const std::vector<T> &data,const std::vector<size_t> &shape,int start,int end,int target_dim,int current_dim,std::vector<double> &output){
+        if (target_dim+1==current_dim){
+            std::pair<int,int> ans ;
+            ans.first = start;
+            ans.second = end;
+            return ans;
+        }
+        else{
+            size_t divided_part = shape[current_dim];
+            size_t stride = (end - start + 1) / divided_part; //  每一份的步长
+            std::vector<std::pair<int,int>> store;
+            for (int i = 0; i < divided_part; ++i) {
+                std::pair<int,int> ans = recursiveSum(data,shape,start+i*stride,
+                                                      start+i*stride+stride-1,target_dim,current_dim+1,output);
+                if (ans.first!=-1&&ans.second!=-1){
+                    store.push_back(ans);
+                }
+            }
+
+            if (target_dim==current_dim){
+                int single_length = store[0].second - store[0].first + 1;
+                for (int i = 0; i < single_length; ++i) {
+                    double sum = 0;
+                    for (auto & j : store) {
+                        sum += data[j.first+i];
+                    }
+                    output.push_back(sum);
+                }
+            }
+
+            return std::pair<int,int>(-1,-1);
+        }
+    }
+
+    template <typename T>
+    std::pair<int,int> recursiveMean(const std::vector<T> &data,const std::vector<size_t> &shape,int start,int end,int target_dim,int current_dim,std::vector<double> &output){
+        if (target_dim+1==current_dim){
+            std::pair<int,int> ans ;
+            ans.first = start;
+            ans.second = end;
+            return ans;
+        }
+        else{
+            size_t divided_part = shape[current_dim];
+            size_t stride = (end - start + 1) / divided_part; //  每一份的步长
+            std::vector<std::pair<int,int>> store;
+            for (int i = 0; i < divided_part; ++i) {
+                std::pair<int,int> ans = recursiveMean(data,shape,start+i*stride,
+                                                      start+i*stride+stride-1,target_dim,current_dim+1,output);
+                if (ans.first!=-1&&ans.second!=-1){
+                    store.push_back(ans);
+                }
+            }
+
+            if (target_dim==current_dim){
+                int single_length = store[0].second - store[0].first + 1;
+                for (int i = 0; i < single_length; ++i) {
+                    double sum = 0;
+                    for (auto & j : store) {
+                        sum += data[j.first+i];
+                    }
+                    output.push_back(sum/(double)store.size());
+                }
+            }
+
+            return std::pair<int,int>(-1,-1);
+        }
+    }
+
+    template <typename T>
+    std::pair<int,int> recursiveMin(const std::vector<T> &data,const std::vector<size_t> &shape,int start,int end,int target_dim,int current_dim,std::vector<double> &output){
+        if (target_dim+1==current_dim){
+            std::pair<int,int> ans ;
+            ans.first = start;
+            ans.second = end;
+            return ans;
+        }
+        else{
+            size_t divided_part = shape[current_dim];
+            size_t stride = (end - start + 1) / divided_part; //  每一份的步长
+            std::vector<std::pair<int,int>> store;
+            for (int i = 0; i < divided_part; ++i) {
+                std::pair<int,int> ans = recursiveMin(data,shape,start+i*stride,
+                                                      start+i*stride+stride-1,target_dim,current_dim+1,output);
+                if (ans.first!=-1&&ans.second!=-1){
+                    store.push_back(ans);
+                }
+            }
+
+            if (target_dim==current_dim){
+                int single_length = store[0].second - store[0].first + 1;
+                for (int i = 0; i < single_length; ++i) {
+                    double min = std::numeric_limits<double>::infinity();
+                    for (auto & j : store) {
+                        min = data[j.first+i]<min?data[j.first+i]:min;
+                    }
+                    output.push_back(min);
+                }
+            }
+
+            return std::pair<int,int>(-1,-1);
+        }
+    }
+
+    template <typename T>
+    std::pair<int,int> recursiveMax(const std::vector<T> &data,const std::vector<size_t> &shape,int start,int end,int target_dim,int current_dim,std::vector<double> &output){
+        if (target_dim+1==current_dim){
+            std::pair<int,int> ans ;
+            ans.first = start;
+            ans.second = end;
+            return ans;
+        }
+        else{
+            size_t divided_part = shape[current_dim];
+            size_t stride = (end - start + 1) / divided_part; //  每一份的步长
+            std::vector<std::pair<int,int>> store;
+            for (int i = 0; i < divided_part; ++i) {
+                std::pair<int,int> ans = recursiveMax(data,shape,start+i*stride,
+                                                      start+i*stride+stride-1,target_dim,current_dim+1,output);
+                if (ans.first!=-1&&ans.second!=-1){
+                    store.push_back(ans);
+                }
+            }
+
+            if (target_dim==current_dim){
+                int single_length = store[0].second - store[0].first + 1;
+                for (int i = 0; i < single_length; ++i) {
+                    double max = std::numeric_limits<double>::lowest();
+                    for (auto & j : store) {
+                        max = data[j.first+i]>max?data[j.first+i]:max;
+                    }
+                    output.push_back(max);
+                }
+            }
+
+            return std::pair<int,int>(-1,-1);
+        }
     }
 
     template<typename T>
