@@ -11,43 +11,42 @@
 #include <list>
 #include <memory>
 
-namespace ts
-{
-    struct Slice
-    {
+namespace ts {
+    struct Slice {
         size_t start;
         size_t end; // 不包含
 
         Slice(size_t s, size_t e) : start(s), end(e) {}
-        Slice(std::vector<size_t> se)
-        {
-            if (se.size() != 2)
-            {
+
+        Slice(std::vector<size_t> se) {
+            if (se.size() != 2) {
                 throw std::invalid_argument("The number of parameters is incorrect. (When creating slices)");
-            }
-            else
-            {
+            } else {
                 start = se[0];
                 end = se[1];
             }
         }
+
         Slice(size_t s) : start(s), end(s + 1) {}
     };
+
     // Tensor模板类定义
-    template <typename T>
-    class Tensor
-    {
+    template<typename T>
+    class Tensor {
         static_assert(std::is_same<T, int>::value || std::is_same<T, double>::value,
                       "Tensor can only be of type int or double."); // 限制类型为int或double
 
     public:
         // 默认构造函数
         Tensor() : Tensor(std::vector<T>(1, 0), {1}) {}
+
         Tensor(const std::vector<T> &data, const std::vector<size_t> &shape);
+
         Tensor(std::shared_ptr<std::vector<T>> data,
                const std::vector<size_t> &shape,
                const std::vector<Slice> &slices,
                const std::vector<size_t> &strides);
+
         Tensor(std::shared_ptr<std::vector<T>> data,
                const std::vector<size_t> &shape,
                const std::vector<Slice> &slices,
@@ -56,6 +55,11 @@ namespace ts
 
         // 获取Tensor形状
         std::vector<size_t> get_shape() const;
+
+        // 获取data
+        const std::shared_ptr<std::vector<T>> &getData() const {
+            return data_;
+        }
 
         // 访问元素（非const版本）tensor({1,2,3...})
         T &operator()(const std::vector<size_t> &indexes);
@@ -92,16 +96,18 @@ namespace ts
         Tensor<T> slice(const std::vector<Slice> &slices) const;
 
         // 连接tensor
-        template <typename U>
+        template<typename U>
         friend Tensor<U> cat(const std::vector<Tensor<U>> &tensors, size_t dim);
 
         // 重复tensor
-        template <typename U>
+        template<typename U>
         friend Tensor<U> tile(const Tensor<U> &tensor, const std::vector<size_t> &dims);
 
         // 递归连接高维张量的辅助函数
-        template <typename U>
-        friend void recursiveCat(const Tensor<U> &input, Tensor<U> &output, size_t dim, std::vector<size_t> &indexes, size_t current_dim, size_t start_index);
+        template<typename U>
+        friend void recursiveCat(const Tensor<U> &input, Tensor<U> &output, size_t dim, std::vector<size_t> &indexes,
+                                 size_t current_dim, size_t start_index);
+
         // 静态成员函数转置
         static Tensor<T> transpose(const Tensor<T> &tensor, size_t dim1, size_t dim2);
 
@@ -116,7 +122,9 @@ namespace ts
 
         void setAllValuesRecursive(Tensor<T> &tensor, const T &value, std::vector<size_t> &indices, size_t dim);
 
-        void setLastValuesRecursive(Tensor<T> &tensor, const std::vector<T> &data, std::vector<size_t> &indices, size_t dim);
+        void
+        setLastValuesRecursive(Tensor<T> &tensor, const std::vector<T> &data, std::vector<size_t> &indices, size_t dim);
+
         // add
         Tensor<T> operator+(Tensor<T> adder);
 
@@ -137,8 +145,6 @@ namespace ts
 
         Tensor<T> mul(double scala);
 
-        Tensor<T> div(const Tensor<T> &t1, const Tensor<T> &t2);
-
         Tensor<T> div(double scalar);
 
         Tensor<T> operator/(const Tensor<T> &dividend);
@@ -153,25 +159,37 @@ namespace ts
 
         Tensor<T> min(int dim) const;
 
-        Tensor<int> eq(Tensor <T> &tensor);
+        Tensor<int> eq(Tensor<T> &tensor);
 
         Tensor<int> operator==(Tensor<T> &tensor);
 
-        const std::shared_ptr<std::vector<T>> &getData() const {
-            return data_;
-        }
-
-        Tensor<int> ne(Tensor <T> &tensor);
+        Tensor<int> ne(Tensor<T> &tensor);
 
         Tensor<int> operator!=(Tensor<T> &tensor);
 
-        // friend void recursive_einsum<T>(
-        // const std::vector<Tensor<T>>& tensors,
-        // Tensor<T>& result,
-        // const std::string& einsum_str,
-        // std::vector<int>& current_indices,
-        // int depth
-        // );
+        Tensor<int> lt(Tensor<T> &tensor);
+
+        Tensor<int> operator<(Tensor<T> &tensor);
+
+        Tensor<int> le(Tensor<T> &tensor);
+
+        Tensor<int> operator<=(Tensor<T> &tensor);
+
+        Tensor<int> gt(Tensor<T> &tensor);
+
+        Tensor<int> operator>(Tensor<T> &tensor);
+
+        Tensor<int> ge(Tensor<T> &tensor);
+
+        Tensor<int> operator>=(Tensor<T> &tensor);
+
+        bool isBool() const {
+            return is_bool;
+        }
+
+        void setIsBool(bool isBool) {
+            is_bool = isBool;
+        }
 
     private:
         std::shared_ptr<std::vector<T>> data_;
@@ -180,35 +198,118 @@ namespace ts
 
         std::vector<Slice> slices_;
         bool is_slice_;
-        bool is_bool;
+        bool is_bool = false;
+
         size_t calculate_index(const std::vector<size_t> &indexes) const;
 
-
-
-        Tensor<T> max(int dim);
-
-        Tensor<T> min(int dim);
     };
+
+    //static Math operations declaration
     template<typename T>
-    Tensor<T> broadcast(const Tensor<T>& input, const Tensor<T>& other);
+    Tensor<T> add(Tensor<T> a1, Tensor<T> a2) {
+        return a1.add(a2);
+    }
+
+    // add with mixed types
     template<typename T>
-    std::vector<size_t> calculate_broadcast_shape(const Tensor<T>& t1, const Tensor<T>& t2);
+    Tensor<T> add(Tensor<T> t, double value) {
+        return t.add(value);
+    }
+
     template<typename T>
-    std::vector<T> broadcastExtend(const Tensor<T>& input,std::vector<size_t> &target_shape);
+    Tensor<T> sub(Tensor<T> a1, Tensor<T> a2) {
+        return a1.sub(a2);
+    }
+
+    template<typename T>
+    Tensor<T> sub(Tensor<T> t, double value) {
+        return t.sub(value);
+    }
+
+    template<typename T>
+    Tensor<T> mul(const Tensor<T> &t1, const Tensor<T> &t2) {
+        return t1.mul(t2);
+    }
+
+    template<typename T>
+    Tensor<T> mul(Tensor<T> &tensor, double scala) {
+        return tensor.mul(scala);
+    }
+
+    // Divide operation for high-dimensional tensor division
+    template<typename T>
+    Tensor<T> div(const Tensor<T> &t1, const Tensor<T> &t2) {
+        // Check if dimensions are compatible for tensor division
+        return t1.div(t2);
+    }
+
+    // Divide operation for scalar division
+    template<typename T>
+    Tensor<T> div(Tensor<T> &tensor, double scalar) {
+        return tensor.div(scalar);
+    }
+
+    template<typename T>
+    Tensor<double> log(const Tensor<T> &tensor) {
+        // Create the result Tensor
+        std::vector<double> result_data;
+        result_data.reserve(tensor.getData()->size());
+        // Perform element-wise logarithm
+        for (size_t i = 0; i < tensor.getData()->size(); ++i) {
+            result_data.push_back(std::log((*tensor.getData())[i]));
+        }
+
+        return Tensor<T>(result_data, tensor.get_shape());
+    }
+
+    template<typename T>
+    Tensor<T> sum(const Tensor<T> &tensor, int dim) {
+        return tensor.sum(dim);
+    }
+
+    template<typename T>
+    Tensor<double> mean(const Tensor<T> &tensor, int dim) {
+        return tensor.mean(dim);
+    }
+
+    template<typename T>
+    Tensor<T> max(const Tensor<T> &tensor, int dim) {
+        return tensor.max(dim);
+    }
+
+    template<typename T>
+    Tensor<T> min(const Tensor<T> &tensor, int dim) {
+        return tensor.min(dim);
+    }
 
     template <typename T>
-    Tensor<T> cat(const std::vector<Tensor<T>> &tensors, size_t dim)
-    {
-        if (tensors.empty())
-        {
+    Tensor<int> eq(Tensor<T> &t1,Tensor<T> &t2){
+        return t1.eq(t2);
+    }
+
+    template <typename T>
+    Tensor<int> ne(Tensor<T> &t1,Tensor<T> &t2){
+        return t1.ne(t2);
+    }
+
+    template<typename T>
+    Tensor<T> broadcast(const Tensor<T> &input, const Tensor<T> &other);
+
+    template<typename T>
+    std::vector<size_t> calculate_broadcast_shape(const Tensor<T> &t1, const Tensor<T> &t2);
+
+    template<typename T>
+    std::vector<T> broadcastExtend(const Tensor<T> &input, std::vector<size_t> &target_shape);
+
+    template<typename T>
+    Tensor<T> cat(const std::vector<Tensor<T>> &tensors, size_t dim) {
+        if (tensors.empty()) {
             throw std::invalid_argument("Tensor list is empty.");
         }
 
         // 检查维度是否有效
-        for (const auto &tensor : tensors)
-        {
-            if (dim >= tensor.get_shape().size())
-            {
+        for (const auto &tensor: tensors) {
+            if (dim >= tensor.get_shape().size()) {
                 throw std::invalid_argument("Invalid dimension for concatenation.");
             }
         }
@@ -225,8 +326,7 @@ namespace ts
         // 计算新张量的形状
         std::vector<size_t> new_shape = tensors[0].get_shape();
         size_t total_dim_size = 0;
-        for (const auto &tensor : tensors)
-        {
+        for (const auto &tensor: tensors) {
             total_dim_size += tensor.get_shape()[dim];
         }
         new_shape[dim] = total_dim_size;
@@ -237,8 +337,7 @@ namespace ts
         // 进行连接操作
         std::vector<size_t> indexes(new_shape.size(), 0);
         size_t start_index = 0;
-        for (const auto &tensor : tensors)
-        {
+        for (const auto &tensor: tensors) {
             recursiveCat(tensor, result, dim, indexes, 0, start_index);
             start_index += tensor.get_shape()[dim];
         }
@@ -246,36 +345,28 @@ namespace ts
         return result;
     }
 
-    template <typename T>
-    void recursiveCat(const Tensor<T> &input, Tensor<T> &output, size_t dim, std::vector<size_t> &indexes, size_t current_dim, size_t start_index)
-    {
-        if (current_dim == dim)
-        {
-            for (size_t i = 0; i < input.get_shape()[dim]; ++i)
-            {
+    template<typename T>
+    void recursiveCat(const Tensor<T> &input, Tensor<T> &output, size_t dim, std::vector<size_t> &indexes,
+                      size_t current_dim, size_t start_index) {
+        if (current_dim == dim) {
+            for (size_t i = 0; i < input.get_shape()[dim]; ++i) {
                 indexes[dim] = start_index + i;
                 recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
             }
-        }
-        else if (current_dim < output.get_shape().size())
-        {
-            for (size_t i = 0; i < input.get_shape()[current_dim]; ++i)
-            {
+        } else if (current_dim < output.get_shape().size()) {
+            for (size_t i = 0; i < input.get_shape()[current_dim]; ++i) {
                 indexes[current_dim] = i;
                 recursiveCat(input, output, dim, indexes, current_dim + 1, start_index);
             }
-        }
-        else
-        {
+        } else {
             auto input_index = indexes;
             input_index[dim] -= start_index; // 确保 output_index[dim] 不超过 input 的 dim 维度大小
             output(indexes) = input(input_index);
         }
     }
 
-    template <typename T>
-    Tensor<T> tile(const Tensor<T> &tensor, const std::vector<size_t> &dims)
-    {
+    template<typename T>
+    Tensor<T> tile(const Tensor<T> &tensor, const std::vector<size_t> &dims) {
         // if (dims.size() != tensor.get_shape().size())
         // {
         //     throw std::invalid_argument("Dimensions for tiling do not match the tensor shape.");
@@ -284,10 +375,8 @@ namespace ts
         Tensor<int> result = tensor;
         size_t count = 0;
         Tensor<int> my_tensor = tensor;
-        for (size_t dim : dims)
-        {
-            for (size_t i = 1; i < dim; i++)
-            {
+        for (size_t dim: dims) {
+            for (size_t i = 1; i < dim; i++) {
                 result = ts::cat<int>({result, my_tensor}, count);
             }
             count++;

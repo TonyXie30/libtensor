@@ -1,127 +1,109 @@
 #include "Tensor.h"
 
-namespace ts
-{
-    template <typename T>
+namespace ts {
+    template<typename T>
     Tensor<T>::Tensor(const std::vector<T> &data, const std::vector<size_t> &shape)
-        : data_(std::make_shared<std::vector<T>>(data)), shape_(shape), is_slice_(false)
-    {
+            : data_(std::make_shared<std::vector<T>>(data)), shape_(shape), is_slice_(false) {
         // 验证形状是否有效
-        if (shape.empty())
-        {
+        if (shape.empty()) {
             throw std::invalid_argument("Shape cannot be empty.(when create tensor)");
         }
 
         // 验证每个维度的大小
-        for (size_t dim : shape)
-        {
-            if (dim == 0 || dim > 1000)
-            {
-                throw std::invalid_argument("Shape dimensions must be greater than zero and should not be too large.(when create tensor)");
+        for (size_t dim: shape) {
+            if (dim == 0 || dim > 1000) {
+                throw std::invalid_argument(
+                        "Shape dimensions must be greater than zero and should not be too large.(when create tensor)");
             }
         }
 
         // 计算步长
         strides_.resize(shape_.size());
         size_t stride = 1;
-        for (int i = shape_.size() - 1; i >= 0; --i)
-        {
+        for (int i = shape_.size() - 1; i >= 0; --i) {
             strides_[i] = stride;
             stride *= shape_[i];
         }
         slices_.clear();
         // 验证数据大小
-        if (data_->size() != stride)
-        {
+        if (data_->size() != stride) {
             throw std::logic_error("Data size does not match the tensor shape.(when create tensor)");
         }
     }
-    template <typename T>
+
+    template<typename T>
     Tensor<T>::Tensor(std::shared_ptr<std::vector<T>> data,
                       const std::vector<size_t> &shape,
                       const std::vector<Slice> &slices,
                       const std::vector<size_t> &strides)
-        : data_(std::move(data)), shape_(shape), slices_(slices), strides_(strides), is_slice_(true)
-    {
+            : data_(std::move(data)), shape_(shape), slices_(slices), strides_(strides), is_slice_(true) {
         // 检查形状、切片和步长的有效性
-        if (shape.size() != slices.size() || shape.size() != strides.size())
-        {
+        if (shape.size() != slices.size() || shape.size() != strides.size()) {
             throw std::invalid_argument("Shape, slices, and strides must have the same size.");
         }
     }
 
 
-    template <typename T>
+    template<typename T>
     Tensor<T>::Tensor(std::shared_ptr<std::vector<T>> data,
                       const std::vector<size_t> &shape,
                       const std::vector<Slice> &slices,
                       const std::vector<size_t> &strides,
                       const int i)
-        : shape_(shape), slices_(slices), strides_(strides), is_slice_(false)
-    {
+            : shape_(shape), slices_(slices), strides_(strides), is_slice_(false) {
         // 深拷贝数据
         data_ = std::make_shared<std::vector<T>>(*data);
 
         // 检查形状、切片和步长的有效性
-        if (shape.size() != strides.size())
-        {
+        if (shape.size() != strides.size()) {
             throw std::invalid_argument("Shape and strides must have the same size.");
         }
     }
 
     // 获取Tensor形状实现
-    template <typename T>
-    std::vector<size_t> Tensor<T>::get_shape() const
-    {
+    template<typename T>
+    std::vector<size_t> Tensor<T>::get_shape() const {
         return shape_;
     }
 
     // 访问元素实现（非const版本）
-    template <typename T>
-    T &Tensor<T>::operator()(const std::vector<size_t> &indexes)
-    {
+    template<typename T>
+    T &Tensor<T>::operator()(const std::vector<size_t> &indexes) {
         return (*data_)[calculate_index(indexes)];
     }
 
     // 访问元素实现（const版本）
-    template <typename T>
-    const T &Tensor<T>::operator()(const std::vector<size_t> &indexes) const
-    {
+    template<typename T>
+    const T &Tensor<T>::operator()(const std::vector<size_t> &indexes) const {
         return (*data_)[calculate_index(indexes)];
     }
 
-    template <typename T>
-    Tensor<T> Tensor<T>::operator()(const size_t s)
-    {
+    template<typename T>
+    Tensor<T> Tensor<T>::operator()(const size_t s) {
         return this->slice({s});
     }
 
-    template <typename T>
-    Tensor<T> Tensor<T>::operator()(size_t s, const std::vector<size_t> &site)
-    {
+    template<typename T>
+    Tensor<T> Tensor<T>::operator()(size_t s, const std::vector<size_t> &site) {
         return this->slice({s, site});
     }
 
-    template <typename T>
-    Tensor<T> &Tensor<T>::operator=(const T &value)
-    {
+    template<typename T>
+    Tensor<T> &Tensor<T>::operator=(const T &value) {
         std::vector<size_t> loc_shape = this->get_shape();
         std::vector<size_t> indices(loc_shape.size(), 0); // 初始化索引向量
         setAllValuesRecursive(*this, value, indices, 0);  // 将张量中的所有元素都设置为 value
         return *this;
     }
 
-    template <typename T>
-    Tensor<T> &Tensor<T>::operator=(const std::vector<T> &data)
-    {
+    template<typename T>
+    Tensor<T> &Tensor<T>::operator=(const std::vector<T> &data) {
         size_t total_size = 1;
-        for (size_t i = 0; i < shape_.size(); i++)
-        {
+        for (size_t i = 0; i < shape_.size(); i++) {
             total_size *= shape_[i];
         }
 
-        if (data.size() != total_size)
-        {
+        if (data.size() != total_size) {
             throw std::invalid_argument("Data size does not match tensor shape");
         }
         std::vector<size_t> loc_shape = this->get_shape();
@@ -130,38 +112,31 @@ namespace ts
         return *this;
     }
 
-    template <typename T>
-    void Tensor<T>::setLastValuesRecursive(Tensor<T> &tensor, const std::vector<T> &data, std::vector<size_t> &indices, size_t dim)
-    {
+    template<typename T>
+    void Tensor<T>::setLastValuesRecursive(Tensor<T> &tensor, const std::vector<T> &data, std::vector<size_t> &indices,
+                                           size_t dim) {
 
         int count = tensor.get_shape().size();
-        if (dim != count - 1)
-        {
+        if (dim != count - 1) {
             indices[dim] = 0;
             setLastValuesRecursive(*this, data, indices, dim + 1);
             return;
         }
 
-        for (size_t i = 0; i < data.size(); i++)
-        {
+        for (size_t i = 0; i < data.size(); i++) {
             indices[dim] = i;
             tensor(indices) = data[i];
         }
     }
 
-    template <typename T>
-    void Tensor<T>::setAllValuesRecursive(Tensor<T> &tensor, const T &value, std::vector<size_t> &indices, size_t dim)
-    {
-        if (dim == tensor.get_shape().size())
-        {
+    template<typename T>
+    void Tensor<T>::setAllValuesRecursive(Tensor<T> &tensor, const T &value, std::vector<size_t> &indices, size_t dim) {
+        if (dim == tensor.get_shape().size()) {
             // 达到最后一个维度时，将当前索引处的元素设置为 value
             tensor(indices) = value;
-        }
-        else
-        {
+        } else {
             // 递归遍历下一个维度的所有索引
-            for (size_t i = 0; i < tensor.get_shape()[dim]; i++)
-            {
+            for (size_t i = 0; i < tensor.get_shape()[dim]; i++) {
                 indices[dim] = i;
                 setAllValuesRecursive(tensor, value, indices, dim + 1);
             }
@@ -169,22 +144,17 @@ namespace ts
     }
 
     // 计算索引实现
-    template <typename T>
-    size_t Tensor<T>::calculate_index(const std::vector<size_t> &indexes) const
-    {
-        if (indexes.size() != shape_.size())
-        {
+    template<typename T>
+    size_t Tensor<T>::calculate_index(const std::vector<size_t> &indexes) const {
+        if (indexes.size() != shape_.size()) {
             throw std::invalid_argument("Dimension mismatch.(when use index)");
         }
         size_t index = 0;
-        for (size_t i = 0; i < indexes.size(); ++i)
-        {
-            if (is_slice_ && (indexes[i] < 0 || indexes[i] >= slices_[i].end - slices_[i].start))
-            {
+        for (size_t i = 0; i < indexes.size(); ++i) {
+            if (is_slice_ && (indexes[i] < 0 || indexes[i] >= slices_[i].end - slices_[i].start)) {
                 throw std::out_of_range("Tensor index out of slice range.(when use index)");
             }
-            if (indexes[i] >= shape_[i])
-            {
+            if (indexes[i] >= shape_[i]) {
                 throw std::out_of_range("Tensor index out of range.(when use index)");
             }
             size_t adjusted_index = is_slice_ ? indexes[i] + slices_[i].start : indexes[i];
@@ -194,53 +164,48 @@ namespace ts
     }
 
     // 输出张量结构与元素的实现
-    template <typename T>
+    template<typename T>
     void printTensor(const std::vector<T> &data,
                      const std::vector<size_t> &shape,
                      const std::vector<size_t> &strides,
                      const std::vector<Slice> &slices,
                      bool is_slice,
+                     bool is_bool,
                      size_t index = 0,
-                     size_t dimension = 0)
-    {
-        if (dimension == shape.size() - 1)
-        {
+                     size_t dimension = 0) {
+        if (dimension == shape.size() - 1) {
             std::cout << "[";
-            for (size_t i = 0; i < shape[dimension]; ++i)
-            {
+            for (size_t i = 0; i < shape[dimension]; ++i) {
                 // 计算实际索引，考虑到切片的起始位置和步长
                 size_t actual_index = index;
-                if (is_slice)
-                {
+                if (is_slice) {
                     actual_index += (slices[dimension].start + i) * strides[dimension];
-                }
-                else
-                {
+                } else {
                     actual_index += i * strides[dimension];
                 }
-                std::cout << data[actual_index];
+                // bool值打印，当值为1时且isbool()成立，打印bool
+                if ((data[actual_index] == 1 || data[actual_index] == 0) && is_bool) {
+                    std::string ans = data[actual_index] == 1 ? "true" : "false";
+                    std::cout << ans;
+                } else{
+                    std::cout << data[actual_index];
+                }
                 if (i < shape[dimension] - 1)
                     std::cout << ", ";
             }
             std::cout << "]";
-        }
-        else
-        {
+        } else {
             std::cout << "[";
-            for (size_t i = 0; i < shape[dimension]; ++i)
-            {
+            for (size_t i = 0; i < shape[dimension]; ++i) {
                 // 计算下一维度的索引
                 size_t next_index = index;
-                if (is_slice)
-                {
+                if (is_slice) {
                     // 如果是切片，考虑到切片的起始位置和步长
                     next_index += (slices[dimension].start + i) * strides[dimension];
-                }
-                else
-                {
+                } else {
                     next_index += i * strides[dimension];
                 }
-                printTensor(data, shape, strides, slices, is_slice, next_index, dimension + 1);
+                printTensor(data, shape, strides, slices, is_slice, is_bool,next_index, dimension + 1);
                 if (i < shape[dimension] - 1)
                     std::cout << ", ";
                 if (dimension == 0 && i < shape[dimension] - 1)
@@ -254,33 +219,27 @@ namespace ts
             std::cout << std::endl;
     }
 
-    template <typename T>
-    void Tensor<T>::print() const
-    {
+    template<typename T>
+    void Tensor<T>::print() const {
         // 检查是否是切片，如果是，传递切片信息
-        printTensor(*data_, shape_, strides_, slices_, is_slice_);
+        printTensor(*data_, shape_, strides_, slices_, is_slice_, is_bool);
     }
 
     // rand<>,随机初始化tensor
     // double类型实现
-    template <>
-    Tensor<double> Tensor<double>::rand(const std::vector<size_t> &shape)
-    {
-        if (shape.empty())
-        {
+    template<>
+    Tensor<double> Tensor<double>::rand(const std::vector<size_t> &shape) {
+        if (shape.empty()) {
             throw std::invalid_argument("Shape cannot be empty.(when using rand to create tensor)");
         }
-        for (size_t i = 0; i < shape.size(); i++)
-        {
-            if (shape[i] == 0 || shape[i] > 1000)
-            {
+        for (size_t i = 0; i < shape.size(); i++) {
+            if (shape[i] == 0 || shape[i] > 1000) {
                 throw std::invalid_argument(
-                    "Shape dimensions must be greater than zero and should not be too large.(when using rand to create tensor)");
+                        "Shape dimensions must be greater than zero and should not be too large.(when using rand to create tensor)");
             }
         }
         size_t total_number = 1;
-        for (size_t i = shape.size(); i-- > 0;)
-        {
+        for (size_t i = shape.size(); i-- > 0;) {
             total_number *= shape[i];
         }
         std::vector<double> data(total_number);
@@ -288,8 +247,7 @@ namespace ts
         std::mt19937 gen(rd());                               // 基于mt19937算法的随机数生成器
         std::uniform_real_distribution<double> dis(0.0, 1.0); // 定义一个从0.0到1.0的均匀分布
 
-        for (double &val : data)
-        {
+        for (double &val: data) {
             val = dis(gen); // 生成一个随机数并赋值
         }
         return Tensor<double>(data, shape);
@@ -297,24 +255,19 @@ namespace ts
 
     // rand<>,随机初始化tensor
     //  int类型的实现
-    template <>
-    Tensor<int> Tensor<int>::rand(const std::vector<size_t> &shape)
-    {
-        if (shape.empty())
-        {
+    template<>
+    Tensor<int> Tensor<int>::rand(const std::vector<size_t> &shape) {
+        if (shape.empty()) {
             throw std::invalid_argument("Shape cannot be empty.(when using rand to create tensor)");
         }
-        for (size_t i = 0; i < shape.size(); i++)
-        {
-            if (shape[i] == 0 || shape[i] > 1000)
-            {
+        for (size_t i = 0; i < shape.size(); i++) {
+            if (shape[i] == 0 || shape[i] > 1000) {
                 throw std::invalid_argument(
-                    "Shape dimensions must be greater than zero and should not be too large.(when using rand to create tensor)");
+                        "Shape dimensions must be greater than zero and should not be too large.(when using rand to create tensor)");
             }
         }
         size_t total_number = 1;
-        for (size_t i = shape.size(); i-- > 0;)
-        {
+        for (size_t i = shape.size(); i-- > 0;) {
             total_number *= shape[i];
         }
         std::vector<int> data(total_number);
@@ -322,109 +275,88 @@ namespace ts
         std::mt19937 gen(rd());                         // 基于mt19937算法的随机数生成器
         std::uniform_int_distribution<int> dis(0, 100); // 定义一个从0到100的均匀分布
 
-        for (int &val : data)
-        {
+        for (int &val: data) {
             val = dis(gen); // 生成一个随机数并赋值
         }
         return Tensor<int>(data, shape);
     }
 
     // 创建所有元素为0的Tensor
-    template <typename T>
-    Tensor<T> Tensor<T>::zeros(const std::vector<size_t> &shape)
-    {
-        if (shape.empty())
-        {
+    template<typename T>
+    Tensor<T> Tensor<T>::zeros(const std::vector<size_t> &shape) {
+        if (shape.empty()) {
             throw std::invalid_argument("Shape cannot be empty.(when using zeros to create tensor)");
         }
-        for (size_t i = 0; i < shape.size(); i++)
-        {
-            if (shape[i] == 0 || shape[i] > 1000)
-            {
+        for (size_t i = 0; i < shape.size(); i++) {
+            if (shape[i] == 0 || shape[i] > 1000) {
                 throw std::invalid_argument(
-                    "Shape dimensions must be greater than zero and should not be too large.(when using zeros to create tensor)");
+                        "Shape dimensions must be greater than zero and should not be too large.(when using zeros to create tensor)");
             }
         }
         size_t total_number = 1;
-        for (size_t i = shape.size(); i-- > 0;)
-        {
+        for (size_t i = shape.size(); i-- > 0;) {
             total_number *= shape[i];
         }
         return Tensor<T>(std::vector<T>(total_number, 0), shape);
     }
 
     // 创建所有元素为1的Tensor
-    template <typename T>
-    Tensor<T> Tensor<T>::ones(const std::vector<size_t> &shape)
-    {
-        if (shape.empty())
-        {
+    template<typename T>
+    Tensor<T> Tensor<T>::ones(const std::vector<size_t> &shape) {
+        if (shape.empty()) {
             throw std::invalid_argument("Shape cannot be empty.(when using ones to create tensor)");
         }
-        for (size_t i = 0; i < shape.size(); i++)
-        {
-            if (shape[i] == 0 || shape[i] > 1000)
-            {
+        for (size_t i = 0; i < shape.size(); i++) {
+            if (shape[i] == 0 || shape[i] > 1000) {
                 throw std::invalid_argument(
-                    "Shape dimensions must be greater than zero and should not be too large.(when using ones to create tensor)");
+                        "Shape dimensions must be greater than zero and should not be too large.(when using ones to create tensor)");
             }
         }
         size_t total_number = 1;
-        for (size_t i = shape.size(); i-- > 0;)
-        {
+        for (size_t i = shape.size(); i-- > 0;) {
             total_number *= shape[i];
         }
         return Tensor<T>(std::vector<T>(total_number, 1), shape);
     }
 
     // 创建所有元素为指定值的Tensor
-    template <typename T>
-    Tensor<T> Tensor<T>::full(const std::vector<size_t> &shape, T value)
-    {
-        if (shape.empty())
-        {
+    template<typename T>
+    Tensor<T> Tensor<T>::full(const std::vector<size_t> &shape, T value) {
+        if (shape.empty()) {
             throw std::invalid_argument("Shape cannot be empty.(when using full to create tensor)");
         }
 
-        for (size_t i = 0; i < shape.size(); i++)
-        {
-            if (shape[i] == 0 || shape[i] > 1000)
-            {
+        for (size_t i = 0; i < shape.size(); i++) {
+            if (shape[i] == 0 || shape[i] > 1000) {
                 throw std::invalid_argument(
-                    "Shape dimensions must be greater than zero and should not be too large.(when using full to create tensor)");
+                        "Shape dimensions must be greater than zero and should not be too large.(when using full to create tensor)");
             }
         }
         size_t total_number = 1;
-        for (size_t i = shape.size(); i-- > 0;)
-        {
+        for (size_t i = shape.size(); i-- > 0;) {
             total_number *= shape[i];
         }
         return Tensor<T>(std::vector<T>(total_number, value), shape);
     }
 
     // 创建单位矩阵，发现需要限制这些张量的形状大小（不清楚怎么处理），尝试输入负数会导致尺寸爆炸。
-    template <typename T>
-    Tensor<T> Tensor<T>::eye(size_t size)
-    {
-        if (size == 0 || size > 1000)
-        {
+    template<typename T>
+    Tensor<T> Tensor<T>::eye(size_t size) {
+        if (size == 0 || size > 1000) {
             throw std::invalid_argument(
-                "Shape dimensions must be greater than zero and should not be too large.(when using eye to create tensor)");
+                    "Shape dimensions must be greater than zero and should not be too large.(when using eye to create tensor)");
         }
         Tensor<T> mytensor = Tensor<T>::zeros({size, size});
-        for (size_t i = 0; i < size; i++)
-        {
+        for (size_t i = 0; i < size; i++) {
             mytensor({i, i}) = 1;
         }
         return mytensor;
     }
 
     // 切片
-    template <typename T>
-    Tensor<T> Tensor<T>::slice(const std::vector<Slice> &slices) const
-    {
-        if (slices.size() > shape_.size())
-        {
+    template<typename T>
+    Tensor<T> Tensor<T>::slice(const std::vector<Slice> &slices) const {
+        if (slices.size() > shape_.size()) {
             throw std::invalid_argument("Number of slices cannot exceed tensor dimensions.");
         }
 
@@ -432,20 +364,17 @@ namespace ts
         std::vector<size_t> new_shape;
         std::vector<Slice> new_slices;
 
-        for (size_t i = 0; i < slices.size(); ++i)
-        {
+        for (size_t i = 0; i < slices.size(); ++i) {
             // Slice对象的情况
             Slice s = slices[i];
-            if (s.start >= s.end || s.end > shape_[i])
-            {
+            if (s.start >= s.end || s.end > shape_[i]) {
                 throw std::out_of_range("Invalid slice range for dimension " + std::to_string(i));
             }
             new_shape.push_back(s.end - s.start);
             new_slices.push_back(s);
         }
         // 对于未指定的维度，保持原始形状和切片
-        for (size_t i = slices.size(); i < shape_.size(); ++i)
-        {
+        for (size_t i = slices.size(); i < shape_.size(); ++i) {
             new_shape.push_back(shape_[i]);
             new_slices.push_back(Slice(0, shape_[i])); // 整个维度的切片
         }
@@ -554,15 +483,13 @@ namespace ts
     // }
 
     // 静态成员函数转置
-    template <typename T>
-    Tensor<T> Tensor<T>::transpose(const Tensor<T> &tensor, size_t dim1, size_t dim2)
-    {
+    template<typename T>
+    Tensor<T> Tensor<T>::transpose(const Tensor<T> &tensor, size_t dim1, size_t dim2) {
         // 获取张量的形状
         std::vector<size_t> shape = tensor.get_shape();
 
         // 确保维度有效
-        if (dim1 >= shape.size() || dim2 >= shape.size())
-        {
+        if (dim1 >= shape.size() || dim2 >= shape.size()) {
             throw std::invalid_argument("Invalid dimensions for transpose.");
         }
 
@@ -574,11 +501,9 @@ namespace ts
 
         // 执行转置操作
         std::vector<size_t> indexes(shape.size(), 0);
-        for (size_t i = 0; i < tensor.get_shape()[0]; ++i)
-        {
+        for (size_t i = 0; i < tensor.get_shape()[0]; ++i) {
             indexes[dim1] = i;
-            for (size_t j = 0; j < tensor.get_shape()[1]; ++j)
-            {
+            for (size_t j = 0; j < tensor.get_shape()[1]; ++j) {
                 indexes[dim2] = j;
                 transposed_tensor({j, i}) = tensor(indexes);
             }
@@ -586,16 +511,15 @@ namespace ts
 
         return transposed_tensor;
     }
+
     // 成员函数转置
-    template <typename T>
-    Tensor<T> Tensor<T>::transpose(size_t dim1, size_t dim2) const
-    {
+    template<typename T>
+    Tensor<T> Tensor<T>::transpose(size_t dim1, size_t dim2) const {
         // 获取张量的形状
         std::vector<size_t> shape = get_shape();
 
         // 确保维度有效
-        if (dim1 >= shape.size() || dim2 >= shape.size())
-        {
+        if (dim1 >= shape.size() || dim2 >= shape.size()) {
             throw std::invalid_argument("Invalid dimensions for transpose.");
         }
 
@@ -607,11 +531,9 @@ namespace ts
 
         // 执行转置操作
         std::vector<size_t> indexes(shape.size(), 0);
-        for (size_t i = 0; i < get_shape()[0]; ++i)
-        {
+        for (size_t i = 0; i < get_shape()[0]; ++i) {
             indexes[dim1] = i;
-            for (size_t j = 0; j < get_shape()[1]; ++j)
-            {
+            for (size_t j = 0; j < get_shape()[1]; ++j) {
                 indexes[dim2] = j;
                 transposed_tensor({j, i}) = (*this)(indexes);
             }
@@ -620,22 +542,18 @@ namespace ts
         return transposed_tensor;
     }
 
-    template <typename T>
-    Tensor<T> Tensor<T>::view(const std::vector<size_t> &new_shape)
-    {
+    template<typename T>
+    Tensor<T> Tensor<T>::view(const std::vector<size_t> &new_shape) {
         size_t total_size = 1;
-        for (size_t dim : new_shape)
-        {
+        for (size_t dim: new_shape) {
             total_size *= dim;
         }
-        if (total_size != data_->size())
-        {
+        if (total_size != data_->size()) {
             throw std::invalid_argument("Total size of new shape must be equal to the original size.");
         }
         strides_.resize(new_shape.size());
         size_t stride = 1;
-        for (int i = new_shape.size() - 1; i >= 0; i--)
-        {
+        for (int i = new_shape.size() - 1; i >= 0; i--) {
             strides_[i] = stride;
             stride *= new_shape[i];
         }
@@ -644,9 +562,8 @@ namespace ts
     }
 
     // 在Tensor类外部实现静态函数
-    template <typename T>
-    Tensor<T> Tensor<T>::view(const Tensor<T> &tensor, const std::vector<size_t> &new_shape)
-    {
+    template<typename T>
+    Tensor<T> Tensor<T>::view(const Tensor<T> &tensor, const std::vector<size_t> &new_shape) {
 
         Tensor<T> new_tensor(tensor.data_, tensor.shape_, tensor.slices_, tensor.strides_, 0);
 
@@ -654,5 +571,8 @@ namespace ts
     }
 }
 
-template class ts::Tensor<int>;
-template class ts::Tensor<double>;
+template
+class ts::Tensor<int>;
+
+template
+class ts::Tensor<double>;
