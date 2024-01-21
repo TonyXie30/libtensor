@@ -108,6 +108,16 @@ int main()
     auto view_addres3 = get_data_address(view_tensor3);
     std::cout << "Address of data: " << view_addres3 << std::endl;
     std::cout << std::endl;
+
+        Tensor<int> myTensor = Tensor<int>::rand({12});
+    myTensor.print();
+    saveTensorToFile(myTensor, "my_tensor.bin");
+
+    // 加载张量
+    Tensor<int> loadedTensor = loadTensorFromFile<int>("my_tensor.bin");
+    loadedTensor.print();
+
+    
 //    //1.2
 //    Tensor<int> mytensor2=Tensor<int>::rand({1,2,3,4,5});
 //    Tensor<double> mytensor3=Tensor<double>::rand({1,2,3,4,5});
