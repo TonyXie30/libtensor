@@ -102,11 +102,17 @@ namespace ts
         // 递归连接高维张量的辅助函数
         template <typename U>
         friend void recursiveCat(const Tensor<U> &input, Tensor<U> &output, size_t dim, std::vector<size_t> &indexes, size_t current_dim, size_t start_index);
-        // 静态成员函数转置
-        static Tensor<T> transpose(const Tensor<T> &tensor, size_t dim1, size_t dim2);
 
         // 成员函数转置
-        Tensor<T> transpose(size_t dim1, size_t dim2) const;
+        Tensor<T> transpose(size_t dim1, size_t dim2);
+
+        Tensor<T> permute(const std::vector<size_t> &dims);
+
+        static Tensor<T> permute(const Tensor<T> &tensor, const std::vector<size_t> &dims);
+
+        void recursivePermute(size_t dim, const std::vector<size_t> &dims,
+                              std::vector<size_t> &indexes, std::vector<size_t> &permuted_indexes,
+                              const Tensor<T> source, Tensor<T> &destination);
 
         // 视图函数的成员函数版本
         Tensor<T> view(const std::vector<size_t> &new_shape);
