@@ -180,6 +180,11 @@ namespace ts
         Tensor<T> min(int dim);
     };
 
+    T *get_data_address(const Tensor<T> &tensor)
+    {
+        return tensor.data_->data();
+    }
+
     template <typename T>
     Tensor<T> cat(const std::vector<Tensor<T>> &tensors, size_t dim)
     {
