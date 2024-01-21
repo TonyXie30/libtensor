@@ -60,6 +60,11 @@ namespace ts
         // 获取Tensor形状
         std::vector<size_t> get_shape() const;
 
+        // 获取data
+        const std::shared_ptr<std::vector<T>> &getData() const {
+            return data_;
+        }
+
         // 访问元素（非const版本）tensor({1,2,3...})
         T &operator()(const std::vector<size_t> &indexes);
 
