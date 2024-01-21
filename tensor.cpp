@@ -553,42 +553,8 @@ namespace ts
     //     return result;
     // }
 
-    // 静态成员函数转置
     template <typename T>
-    Tensor<T> Tensor<T>::transpose(const Tensor<T> &tensor, size_t dim1, size_t dim2)
-    {
-        // 获取张量的形状
-        std::vector<size_t> shape = tensor.get_shape();
-
-        // 确保维度有效
-        if (dim1 >= shape.size() || dim2 >= shape.size())
-        {
-            throw std::invalid_argument("Invalid dimensions for transpose.");
-        }
-
-        // 交换dim1和dim2维度的大小
-        std::swap(shape[dim1], shape[dim2]);
-
-        // 创建新的张量以进行转置
-        Tensor<T> transposed_tensor = Tensor<T>::zeros(shape);
-
-        // 执行转置操作
-        std::vector<size_t> indexes(shape.size(), 0);
-        for (size_t i = 0; i < tensor.get_shape()[0]; ++i)
-        {
-            indexes[dim1] = i;
-            for (size_t j = 0; j < tensor.get_shape()[1]; ++j)
-            {
-                indexes[dim2] = j;
-                transposed_tensor({j, i}) = tensor(indexes);
-            }
-        }
-
-        return transposed_tensor;
-    }
-    // 成员函数转置
-    template <typename T>
-    Tensor<T> Tensor<T>::transpose(size_t dim1, size_t dim2) const
+    Tensor<T> Tensor<T>::transpose(size_t dim1, size_t dim2)
     {
         // 获取张量的形状
         std::vector<size_t> shape = get_shape();
@@ -619,6 +585,7 @@ namespace ts
 
         return transposed_tensor;
     }
+
 
     template <typename T>
     Tensor<T> Tensor<T>::view(const std::vector<size_t> &new_shape)
