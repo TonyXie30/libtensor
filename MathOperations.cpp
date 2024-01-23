@@ -1,6 +1,3 @@
-#include <vector>
-#include <stdexcept>
-#include "cmath"
 #include "Tensor.h"
 
 namespace ts {
