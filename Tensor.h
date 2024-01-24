@@ -39,8 +39,8 @@ namespace ts {
     // Tensor模板类定义
     template<typename T>
     class Tensor {
-        static_assert(std::is_same<T, int>::value || std::is_same<T, double>::value || std::is_same<T, bool>::value,
-                      "Tensor can only be of type int or double or bool"); // 限制类型为int或double
+        static_assert(std::is_same<T, int>::value || std::is_same<T, double>::value ,
+                      "Tensor can only be of type int or double"); // 限制类型为int或double
 
     public:
         // 默认构造函数

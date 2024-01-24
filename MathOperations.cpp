@@ -108,14 +108,14 @@ namespace ts {
     Tensor<T> Tensor<T>::mul(double scala) {
         Tensor<T> &tensor = *this;
         // Create the result Tensor
-        Tensor<T> result = tensor;
+        std::vector<T> result;
 
-        // Perform scalar multiplication
+        // Perform scalar division
         for (size_t i = 0; i < tensor.data_->size(); ++i) {
-            (*result.data_)[i] *= scala;
+            result.push_back((double)(*this->getData())[i]*scala);
         }
 
-        return result;
+        return Tensor<T>(result,shape_);
     }
 
 // Divide operation for element-wise division

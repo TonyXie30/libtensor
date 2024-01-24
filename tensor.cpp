@@ -220,9 +220,12 @@ namespace ts
                     actual_index += i * strides[dimension];
                 }
                 // bool值打印，当值为1时且isbool()成立，打印bool
-
-                std::cout << data[actual_index];
-
+                if ((data[actual_index] == 1 || data[actual_index] == 0) && is_bool) {
+                    std::string ans = data[actual_index] == 1 ? "true" : "false";
+                    std::cout << ans;
+                } else{
+                    std::cout << data[actual_index];
+                }
                 if (i < shape[dimension] - 1)
                     std::cout << ", ";
             }
