@@ -11,7 +11,7 @@
 
 libtensor.exe是main的可运行程序。经测试可以正常使用。
 
-Tensor operations通过打印地址说明tensor传回的是数据引用而非拷贝。
+Tensor operations部分功能通过打印地址说明tensor传回的是数据引用而非拷贝。
 
 ### 测试部分截图
 

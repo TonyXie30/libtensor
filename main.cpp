@@ -243,7 +243,7 @@ int main() {
     div2.print();
 
     std::cout << "correct answer" << std::endl;
-    xt::xarray<double> div_arr = x1 / x3;
+    xt::xarray<double> div_arr = xt::cast<double>(x1) / xt::cast<double>(x3);;
     std::cout << div_arr << std::endl;
 
     std::cout << "----log----" << std::endl;
