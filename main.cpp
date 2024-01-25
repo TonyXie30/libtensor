@@ -350,7 +350,16 @@ int main() {
 
     std::cout << "----einsum----" << std::endl;
     try {
-
+        {
+            //1.Extracting elements along diagonal
+            std::cout<<"-------------Extracting elements along diagonal---------------"<<std::endl;
+            auto A=Tensor<int>::rand({6,6});
+            std::vector<Tensor<int>> tensors = {A};
+            std::string einsum_str = "jj->j";
+            Tensor<int> result = execute_einsum(tensors, einsum_str);
+            A.print();
+            result.print();
+        }
         {
             //2.transpose
             std::cout << "-------------Transpose---------------" << std::endl;
@@ -487,7 +496,36 @@ int main() {
             B.print();
             result.print();
         }
-    } catch (const std::exception &e) {
+        {
+        //14.  额外的功能，可以对多个张量进行操作
+        std::cout<<"-------------  Operations on multiple tensors---------------"<<std::endl;
+        auto A=Tensor<int>::rand({6,7});
+        auto B=Tensor<int>::rand({7,8});
+        auto C=Tensor<int>::rand({8,9});
+        std::vector<Tensor<int>> tensors = {A,B,C};
+        std::string einsum_str = "ik,kj,jl->il";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        C.print();
+        result.print();
+        }
+        {
+        //15.  额外的功能，对多个张量进行复杂操作
+        std::cout<<"-------------  Complicated Operations:ijklm,klmno,lmnoq->ijq---------------"<<std::endl;
+        auto A=Tensor<int>::rand({2,3,4,5,6});
+        auto B=Tensor<int>::rand({4,5,6,7,8});
+        auto C=Tensor<int>::rand({5,6,7,8,9});
+        std::vector<Tensor<int>> tensors = {A,B,C};
+        std::string einsum_str = "ijklm,klmno,lmnoq->ijq";
+        Tensor<int> result = execute_einsum(tensors, einsum_str);
+        A.print();
+        B.print();
+        C.print();
+        result.print();
+        }
+
+    } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }

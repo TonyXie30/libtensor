@@ -935,46 +935,117 @@ namespace ts {
             }
         }
 
-        return dim_lengths;
+    return dim_lengths;
+}
+//判断是否要提取对角线元素
+inline bool is_diagonal_extraction(const std::string& einsum_str) {
+    if (einsum_str.length() == 5 && einsum_str[0] == einsum_str[1] &&
+        einsum_str[3] == '>' && einsum_str[4] == einsum_str[0]) {
+        return true;
     }
-    template<typename T>
-    void recursive_einsum(
-            const std::vector<Tensor<T>>& tensors,
-            Tensor<T>& result,
-            const std::vector<char>& indices_order,
-            std::vector<int>& current_indices,
-            const std::map<char, int>& output_index_dim_map,
-            const std::map<char, std::map<int, int>>& index_dim_map,
-            const std::vector<int>& dim_lengths,
-            int depth=0
-    ) {
-        if (depth == indices_order.size()) {
-            // 到达最内层，执行计算
-            auto input_indices = generate_tensor_indices_for_each_tensor(tensors, indices_order, current_indices, index_dim_map);
-            auto output_indices = generate_output_indices(result, indices_order, current_indices, output_index_dim_map);
-            T sum = 1;
-            for (size_t i = 0; i < tensors.size(); ++i) {
-                sum *= tensors[i](input_indices[i]); // 累加来自每个张量的值
-            }
-            result(output_indices) += sum; // 更新结果张量
-        } else {
-            int dim_size = dim_lengths[depth];
-            for (int i = 0; i < dim_size; ++i) {
-                current_indices[depth] = i;
-                recursive_einsum(tensors, result, indices_order, current_indices, output_index_dim_map, index_dim_map, dim_lengths, depth + 1);
-            }
+    return false;
+}
+//提取对角线元素
+template<typename T>
+Tensor<T> extract_diagonal(const Tensor<T>& tensor) {
+    const auto& shape = tensor.get_shape();
+    if (shape.size() != 2 || shape[0] != shape[1]) {
+        throw std::runtime_error("Tensor must be a square matrix to extract diagonal.");
+    }
+
+    Tensor<T> result = Tensor<T>::zeros({shape[0]});
+    for (size_t i = 0; i < shape[0]; ++i) {
+        result({i}) = tensor({i, i});
+    }
+
+    return result;
+}
+template<typename T>
+void check_tensor_count(const std::vector<Tensor<T>>& tensors, const std::string& einsum_str) {
+    size_t comma_count = 0;
+    for (char ch : einsum_str) {
+        if (ch == ',') {
+            comma_count++;
         }
     }
-    template<typename T>
-    Tensor<T> execute_einsum(
-            const std::vector<Tensor<T>>& tensors,
-            const std::string& einsum_str
-    ) {
-        // 解析 einsum 字符串
-        std::map<char, std::map<int, int>> index_dim_map;
-        std::map<char, int> output_index_dim_map;
-        std::vector<char> indices_order;
-        parse_einsum_str(einsum_str, tensors , index_dim_map, output_index_dim_map, indices_order);
+    size_t tensor_required = comma_count + 1;  // 逗号数量加 1 是需要的张量数量
+    if (tensors.size() != tensor_required) {
+        throw std::runtime_error("Number of tensors does not match the number required by the einsum string.");
+    }
+}
+
+inline void check_index_consistency(const std::string& einsum_str) {
+    auto arrow_pos = einsum_str.find("->");
+    if (arrow_pos == std::string::npos) {
+        throw std::runtime_error("einsum string does not contain '->'.");
+    }
+
+    // 创建一个足够大的数组来覆盖所有可能的字符索引
+    bool index_present[256] = {false};
+
+    // 标记输入索引
+    for (size_t i = 0; i < arrow_pos; ++i) {
+        if (isalpha(einsum_str[i])) {
+            index_present[static_cast<unsigned char>(einsum_str[i])] = true;
+        }
+    }
+
+    // 检查输出索引是否在输入索引中
+    for (size_t i = arrow_pos + 2; i < einsum_str.length(); ++i) {
+        if (isalpha(einsum_str[i]) && !index_present[static_cast<unsigned char>(einsum_str[i])]) {
+            throw std::runtime_error("Output indices contain characters not found in input indices.");
+        }
+    }
+}
+template<typename T>
+void recursive_einsum(
+    const std::vector<Tensor<T>>& tensors,
+    Tensor<T>& result,
+    const std::vector<char>& indices_order,
+    std::vector<int>& current_indices,
+    const std::map<char, int>& output_index_dim_map,
+    const std::map<char, std::map<int, int>>& index_dim_map,
+    const std::vector<int>& dim_lengths,
+    int depth=0
+) {
+    if (depth == indices_order.size()) {
+        // 到达最内层，执行计算
+        auto input_indices = generate_tensor_indices_for_each_tensor(tensors, indices_order, current_indices, index_dim_map);
+        auto output_indices = generate_output_indices(result, indices_order, current_indices, output_index_dim_map);
+
+        // T sum = 0;
+        // for (size_t i = 0; i < tensors.size(); ++i) {
+        //     sum += tensors[i](input_indices[i]); // 累加来自每个张量的值
+        // }
+        T sum = 1;
+        for (size_t i = 0; i < tensors.size(); ++i) {
+            sum *= tensors[i](input_indices[i]); // 累乘来自每个张量的值
+        }
+        result(output_indices) += sum; // 更新结果张量
+    } else {
+        int dim_size = dim_lengths[depth];
+        for (int i = 0; i < dim_size; ++i) {
+            current_indices[depth] = i;
+            recursive_einsum(tensors, result, indices_order, current_indices, output_index_dim_map, index_dim_map, dim_lengths, depth + 1);
+        }
+    }
+}
+
+template<typename T>
+Tensor<T> execute_einsum(
+    const std::vector<Tensor<T>>& tensors,
+    const std::string& einsum_str
+) {
+    check_tensor_count(tensors, einsum_str);
+    check_index_consistency(einsum_str);
+    if (is_diagonal_extraction(einsum_str)) {
+        return extract_diagonal<T>(tensors[0]);
+    }
+    // 解析 einsum 字符串
+    std::map<char, std::map<int, int>> index_dim_map;
+    std::map<char, int> output_index_dim_map;
+    std::vector<char> indices_order;
+    parse_einsum_str(einsum_str, tensors , index_dim_map, output_index_dim_map, indices_order);
 
         // 检查维度一致性
         if (!check_dimension_consistency(tensors, index_dim_map)) {
