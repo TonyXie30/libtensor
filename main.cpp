@@ -7,7 +7,7 @@ using namespace ts;
 
 int main() {
     //1.1
-
+    Tensor<int> mytensor1({1,2,3},{3});
     //1.2 测试random
     Tensor<int> mytensor2 = Tensor<int>::rand({1, 2, 3, 4, 5});
     Tensor<double> mytensor3 = Tensor<double>::rand({1, 2, 3, 4, 5});
@@ -48,17 +48,30 @@ int main() {
     auto eye_test = xt::eye<double>({2,2});
     std::cout << eye_test << std::endl;
 
-    // cat
     Tensor<int> cat_tensor1({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, {2, 2, 3});
     Tensor<int> cat_tensor2({13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}, {2, 2, 3});
-    std::cout << "mytensor1 : " << std::endl;
+    std::cout << "tensor1 : " << std::endl;
     cat_tensor1.print();
     std::cout << std::endl;
 
-    std::cout << "mytensor2 : " << std::endl;
+    std::cout << "tensor2 : " << std::endl;
     cat_tensor2.print();
     std::cout << std::endl;
 
+    //indexing
+    std::cout << "index element of tensor[1]" << std::endl;
+    Tensor<int> index_test = cat_tensor1(1) ;
+    index_test.print();
+    std::cout << "data address:" << get_data_address(index_test) << std::endl;
+
+    //slicing
+    std::cout << "slice test of tensor[1,{0,1}]" << std::endl;
+    Tensor<int> index_test2 = cat_tensor1(1,{0,1});
+    index_test2.print();
+    std::cout << "data address :" << get_data_address(index_test2) << std::endl;
+    std::cout << std::endl;
+
+    // cat
     std::vector<Tensor<int>> tensors;
     tensors.push_back(cat_tensor1);
     tensors.push_back(cat_tensor2);
